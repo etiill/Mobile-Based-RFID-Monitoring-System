@@ -33,6 +33,15 @@ export const routes = [
 
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const role = user.role || "admin"
+
+  const filteredRoutes = routes.filter((route) => {
+    if ((role === "teacher" || role === "guardian") && route.path === PATHS.APP.REGISTRATION) {
+      return false
+    }
+    return true
+  })
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -114,7 +123,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             >
               {isCollapsed ? "---" : "Main Menu"}
             </p>
-            {routes.map((item) => (
+            {filteredRoutes.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

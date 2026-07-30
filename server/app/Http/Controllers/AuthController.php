@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Guardian;
+use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -26,23 +28,48 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $admin = Admin::where('email', $request->email)->first();
+        $user = Admin::where('email', $request->email)->first();
+        $role = null;
 
-        if (!$admin || !Hash::check($request->password, $admin->password)) {
+        if ($user) {
+            $role = $user->role;
+        } else {
+            $user = Guardian::where('email', $request->email)->first();
+            if ($user) {
+                $role = 'guardian';
+            }
+        }
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Invalid email or password.'
             ], 401);
         }
 
         // Generate Sanctum plain text token
-        $token = $admin->createToken('admin-token')->plainTextToken;
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        $studentData = null;
+        if ($role === 'guardian') {
+            $student = Student::with('guardians')->find($user->student_id);
+            if ($student) {
+                $studentData = [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'grade' => $student->grade,
+                    'rfid' => $student->rfid,
+                ];
+            }
+        }
 
         return response()->json([
             'message' => 'Login successful',
             'user' => [
-                'id' => $admin->id,
-                'name' => $admin->name,
-                'email' => $admin->email,
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $role,
+                'student' => $studentData,
             ],
             'token' => $token
         ], 200);

@@ -20,6 +20,14 @@ class DatabaseSeeder extends Seeder
             'name' => 'Administrator',
             'email' => 'admin@fcu.edu',
             'password' => Hash::make('password'),
+            'role' => 'admin',
+        ]);
+
+        Admin::create([
+            'name' => 'Jane Smith',
+            'email' => 'teacher@fcu.edu',
+            'password' => Hash::make('password'),
+            'role' => 'teacher',
         ]);
 
         $this->call(StudentSeeder::class);

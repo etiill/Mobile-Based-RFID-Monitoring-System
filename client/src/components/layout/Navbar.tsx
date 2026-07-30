@@ -15,6 +15,18 @@ import {
 
 export function Navbar() {
   const navigate = useNavigate()
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const name = user.name || "Administrator"
+  const role = user.role || "admin"
+
+  const initials = name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2)
+
+  const roleLabel = role === "teacher" ? "Class Teacher" : role === "guardian" ? "Parent/Guardian" : "System Root"
 
   const handleLogout = async () => {
     try {
@@ -33,15 +45,22 @@ export function Navbar() {
     <header className="sticky top-0 z-40 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center justify-between px-6">
         {/* Left Side: Brand Details */}
-        <div className="flex flex-col justify-center">
-          <Link to="/" className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight text-primary leading-tight">
-              FCU Kindergarten
-            </span>
-            <span className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">
-              RFID Monitoring System
-            </span>
-          </Link>
+        <div className="flex items-center gap-3">
+          <img 
+            src="/images/Filamer_Logo.png" 
+            alt="Filamer Logo" 
+            className="h-9 w-9 object-contain select-none"
+          />
+          <div className="flex flex-col justify-center">
+            <Link to="/" className="flex flex-col">
+              <span className="text-lg font-bold tracking-tight text-primary leading-tight">
+                FCU Kindergarten
+              </span>
+              <span className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">
+                RFID Monitoring System
+              </span>
+            </Link>
+          </div>
         </div>
 
         {/* Right Side: User Menu Dropdown */}
@@ -50,15 +69,15 @@ export function Navbar() {
             <DropdownMenuTrigger className="flex items-center gap-3 cursor-pointer outline-none hover:opacity-80 transition-opacity text-left bg-transparent border-0 p-0">
               <Avatar className="h-9 w-9 bg-accent border border-border">
                 <AvatarFallback className="text-xs font-semibold text-neutral bg-accent">
-                  AD
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden flex-col md:flex">
                 <span className="text-sm font-semibold text-neutral leading-none">
-                  Administrator
+                  {name}
                 </span>
                 <span className="text-[10px] text-muted-foreground mt-0.5 leading-none">
-                  System Root
+                  {roleLabel}
                 </span>
               </div>
             </DropdownMenuTrigger>

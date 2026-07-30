@@ -1,8 +1,7 @@
 import React, { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Shield, User, Lock, Eye, EyeOff, Globe, HelpCircle, ArrowRight, ShieldCheck } from "lucide-react"
+import { User, Lock, Eye, EyeOff, Globe, HelpCircle, ArrowRight, ShieldCheck } from "lucide-react"
 import { PATHS } from "../../routes/path"
-import lobbyImage from "../../assets/kindergarten_rfid_lobby.png"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
 
@@ -69,7 +68,12 @@ export function Login() {
 
       {/* Top Navbar */}
       <header className="relative z-10 flex h-16 w-full items-center justify-between px-6 md:px-12 border-b border-white/10 bg-primary/40 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 select-none">
+          <img 
+            src="/images/Filamer_Logo.png" 
+            alt="Filamer Logo" 
+            className="h-8 w-8 object-contain"
+          />
           <span className="text-base font-bold tracking-wide">RFID Monitoring System</span>
         </div>
         <div className="flex items-center gap-6 text-xs text-white/70">
@@ -91,11 +95,13 @@ export function Login() {
           {/* Left Column: Sign In Form */}
           <div className="w-full max-w-md rounded-3xl bg-white text-neutral p-8 md:p-10 shadow-xl flex flex-col justify-between">
             <div>
-              {/* Shield Icon & Header */}
-              <div className="flex flex-col items-center mb-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
-                  <Shield className="h-6 w-6 fill-primary/10" />
-                </div>
+              {/* Logo & Header */}
+              <div className="flex flex-col items-center mb-6 select-none">
+                <img 
+                  src="/images/Filamer_Logo.png" 
+                  alt="Filamer Logo" 
+                  className="h-16 w-16 object-contain mb-2"
+                />
                 <h1 className="text-2xl font-bold tracking-tight text-primary">RFID Monitor</h1>
                 <p className="text-[11px] text-muted-foreground font-bold tracking-wider uppercase mt-1">
                   Kindergarten Safety First
@@ -112,7 +118,7 @@ export function Login() {
 
                 {/* Email Input */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-neutral/80">Email or Username</label>
+                  <label className="text-xs font-bold text-neutral/80">Email</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                       <User className="h-4 w-4" />
@@ -181,14 +187,6 @@ export function Login() {
                 </button>
               </form>
             </div>
-
-            {/* Bottom Link */}
-            <div className="text-center text-xs font-semibold mt-6 pt-2 border-t border-border/50 text-muted-foreground">
-              Don't have an account?{" "}
-              <a href="#" className="text-primary hover:underline font-bold">
-                Sign up
-              </a>
-            </div>
           </div>
 
           {/* Right Column: Info Showcase Card */}
@@ -197,7 +195,7 @@ export function Login() {
               {/* Image Section */}
               <div className="overflow-hidden rounded-2xl w-full flex-1 min-h-[220px] bg-tertiary relative">
                 <img 
-                  src={lobbyImage} 
+                  src="/images/filamerp.jpg" 
                   alt="Kindergarten RFID Lobby" 
                   className="absolute inset-0 w-full h-full object-cover"
                 />

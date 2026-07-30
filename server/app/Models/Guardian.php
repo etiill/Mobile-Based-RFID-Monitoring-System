@@ -1,14 +1,16 @@
 <?php
-
+ 
 namespace App\Models;
-
+ 
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Guardian extends Model
+ 
+class Guardian extends Authenticatable
 {
-    use HasFactory;
-
+    use HasApiTokens, HasFactory, Notifiable;
+ 
     /**
      * The attributes that are mass assignable.
      *
@@ -19,8 +21,20 @@ class Guardian extends Model
         'name',
         'relation',
         'phone',
+        'email',
+        'password',
     ];
-
+ 
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+ 
     /**
      * Get the student that the guardian belongs to.
      */

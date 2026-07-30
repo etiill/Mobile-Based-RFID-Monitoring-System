@@ -1,6 +1,8 @@
 import { ShieldAlert, FileText, CalendarClock, Users, CheckCircle, Clock } from "lucide-react"
+import TeacherDashboard from "./TeacherDashboard"
+import GuardianDashboard from "./GuardianDashboard"
 
-export function Dashboard() {
+export function AdminDashboard() {
   const stats = [
     {
       label: "Total Registered Pupils",
@@ -121,6 +123,21 @@ export function Dashboard() {
       </div>
     </div>
   )
+}
+
+export function Dashboard() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const role = user.role || "admin"
+
+  if (role === "teacher") {
+    return <TeacherDashboard />
+  }
+
+  if (role === "guardian") {
+    return <GuardianDashboard />
+  }
+
+  return <AdminDashboard />
 }
 
 export default Dashboard

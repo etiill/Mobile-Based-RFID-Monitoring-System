@@ -17,6 +17,13 @@ export function AuthGuard() {
     return <Navigate to={PATHS.LOGIN} state={{ from: location }} replace />
   }
 
+  if (isAuthenticated) {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if ((user.role === "teacher" || user.role === "guardian") && location.pathname === PATHS.APP.REGISTRATION) {
+      return <Navigate to={PATHS.APP.DASHBOARD} replace />
+    }
+  }
+
   // Render child routes if authenticated
   return <Outlet />
 }

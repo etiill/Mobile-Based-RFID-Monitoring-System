@@ -26,11 +26,15 @@ class StudentSeeder extends Seeder
                 'name' => 'Sarah Johnson',
                 'relation' => 'Mother',
                 'phone' => '555-0101',
+                'email' => 'sarah@fcu.edu',
+                'password' => bcrypt('password'),
             ],
             [
                 'name' => 'Michael Johnson',
                 'relation' => 'Father',
                 'phone' => '555-0102',
+                'email' => 'michael@fcu.edu',
+                'password' => bcrypt('password'),
             ],
         ]);
 
@@ -45,6 +49,8 @@ class StudentSeeder extends Seeder
             'name' => 'Wei Chen',
             'relation' => 'Mother',
             'phone' => '555-0201',
+            'email' => 'wei@fcu.edu',
+            'password' => bcrypt('password'),
         ]);
     }
 }
