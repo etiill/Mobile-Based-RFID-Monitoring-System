@@ -106,7 +106,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           {/* Desktop Sidebar Collapse Toggle Arrow */}
           <button
             onClick={toggleSidebar}
-            className="hidden md:flex p-1.5 rounded-lg hover:bg-white/15 text-white/70 transition-colors absolute -right-3 top-16 bg-primary border border-white/10 shadow-lg z-50 cursor-pointer"
+            className="hidden md:flex p-1.5 rounded-lg bg-yellow-400 text-blue-900 hover:bg-yellow-400/30 dark:bg-white dark:text-black dark:hover:bg-white/15 hover:text-white/70 transition-colors absolute -right-3 top-16 border border-white/10 shadow-lg z-50 cursor-pointer ease-in-out"
           >
             {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
           </button>
