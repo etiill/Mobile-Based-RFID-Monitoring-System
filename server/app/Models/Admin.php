@@ -62,7 +62,7 @@ class Admin extends Authenticatable
     /**
      * Get the role linked to this admin.
      */
-    public function role()
+    public function systemRole()
     {
         return $this->belongsTo(Role::class, 'role_id');
     }
@@ -72,6 +72,6 @@ class Admin extends Authenticatable
      */
     public function getRoleNameAttribute(): ?string
     {
-        return $this->role?->role_name;
+        return $this->systemRole?->role_name;
     }
 }

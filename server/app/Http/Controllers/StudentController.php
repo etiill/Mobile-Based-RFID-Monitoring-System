@@ -173,7 +173,7 @@ class StudentController extends Controller
      */
     public function indexTeachers()
     {
-        $teachers = Admin::where('role', 'teacher')->with('role')->get();
+        $teachers = Admin::where('role', 'teacher')->with('systemRole')->get();
         return response()->json($teachers, 200);
     }
 
@@ -195,11 +195,13 @@ class StudentController extends Controller
             ], 422);
         }
 
+        $teacherRole = \App\Models\Role::where('role_name', 'Teacher')->first();
         $teacher = Admin::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => 'teacher',
+            'role_id' => $teacherRole?->id,
         ]);
 
         return response()->json($teacher, 201);
