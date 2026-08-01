@@ -173,7 +173,7 @@ class StudentController extends Controller
      */
     public function indexTeachers()
     {
-        $teachers = Admin::where('role', 'teacher')->get();
+        $teachers = Admin::where('role', 'teacher')->with('role')->get();
         return response()->json($teachers, 200);
     }
 

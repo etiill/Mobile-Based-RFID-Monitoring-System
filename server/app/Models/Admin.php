@@ -18,6 +18,13 @@ class Admin extends Authenticatable
     protected $table = 'admins';
 
     /**
+     * The accessors to append to the model array form.
+     *
+     * @var list<string>
+     */
+    protected $appends = ['role_name'];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -27,6 +34,7 @@ class Admin extends Authenticatable
         'email',
         'password',
         'role',
+        'role_id',
     ];
 
     /**
@@ -49,5 +57,21 @@ class Admin extends Authenticatable
         return [
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the role linked to this admin.
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Get the readable role name for this admin.
+     */
+    public function getRoleNameAttribute(): ?string
+    {
+        return $this->role?->role_name;
     }
 }

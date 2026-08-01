@@ -14,43 +14,50 @@ class StudentSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed Emma Johnson
-        $emma = Student::create([
-            'name' => 'Emma Johnson',
-            'grade' => 'K-1',
-            'rfid' => 'RFID-001234',
-        ]);
+        $emma = Student::firstOrCreate(
+            ['rfid' => 'RFID-001234'],
+            [
+                'name' => 'Emma Johnson',
+                'grade' => 'K-1',
+            ]
+        );
 
-        $emma->guardians()->createMany([
+        $emma->guardians()->firstOrCreate(
+            ['email' => 'sarah@fcu.edu'],
             [
                 'name' => 'Sarah Johnson',
                 'relation' => 'Mother',
                 'phone' => '555-0101',
-                'email' => 'sarah@fcu.edu',
                 'password' => bcrypt('password'),
-            ],
+            ]
+        );
+
+        $emma->guardians()->firstOrCreate(
+            ['email' => 'michael@fcu.edu'],
             [
                 'name' => 'Michael Johnson',
                 'relation' => 'Father',
                 'phone' => '555-0102',
-                'email' => 'michael@fcu.edu',
                 'password' => bcrypt('password'),
-            ],
-        ]);
+            ]
+        );
 
-        // 2. Seed Liam Chen
-        $liam = Student::create([
-            'name' => 'Liam Chen',
-            'grade' => 'K-2',
-            'rfid' => 'RFID-001235',
-        ]);
+        $liam = Student::firstOrCreate(
+            ['rfid' => 'RFID-001235'],
+            [
+                'name' => 'Liam Chen',
+                'grade' => 'K-2',
+            ]
+        );
 
-        $liam->guardians()->create([
-            'name' => 'Wei Chen',
-            'relation' => 'Mother',
-            'phone' => '555-0201',
-            'email' => 'wei@fcu.edu',
-            'password' => bcrypt('password'),
-        ]);
+        $liam->guardians()->firstOrCreate(
+            ['email' => 'wei@fcu.edu'],
+            [
+                'name' => 'Wei Chen',
+                'relation' => 'Mother',
+                'phone' => '555-0201',
+                'password' => bcrypt('password'),
+            ]
+        );
     }
 }

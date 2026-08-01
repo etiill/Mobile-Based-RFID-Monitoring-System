@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Admin;
+use App\Models\Role;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -16,19 +17,31 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        Admin::create([
-            'name' => 'Administrator',
-            'email' => 'admin@fcu.edu',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-        ]);
+        $guardianRole = Role::firstOrCreate(['role_name' => 'Guardian']);
+        $teacherRole = Role::firstOrCreate(['role_name' => 'Teacher']);
+        $adminRole = Role::firstOrCreate(['role_name' => 'Admin']);
 
-        Admin::create([
-            'name' => 'Jane Smith',
-            'email' => 'teacher@fcu.edu',
-            'password' => Hash::make('password'),
-            'role' => 'teacher',
-        ]);
+        $adminUser = Admin::firstOrCreate(
+            ['email' => 'admin@fcu.edu'],
+            [
+                'name' => 'Administrator',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+            ]
+        );
+        $adminUser->role_id = $adminRole->id;
+        $adminUser->save();
+
+        $teacherUser = Admin::firstOrCreate(
+            ['email' => 'teacher@fcu.edu'],
+            [
+                'name' => 'Jane Smith',
+                'password' => Hash::make('password'),
+                'role' => 'teacher',
+            ]
+        );
+        $teacherUser->role_id = $teacherRole->id;
+        $teacherUser->save();
 
         $this->call(StudentSeeder::class);
     }
