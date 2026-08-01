@@ -6,7 +6,13 @@ import { PATHS } from "./path"
 import AdminLayout from "../components/layout/AdminLayout"
 import AuthGuard from "../components/auth/AuthGuard"
 import GuestGuard from "../components/auth/GuestGuard"
+import RoleGuard from "../components/auth/RoleGuard"
 import LoadingScreen from "../components/LoadingScreen"
+import RfidScan from "@/pages/RfidScan/RfidScan"
+import Pupils from "@/pages/Pupils/Pupils"
+import MyStudents from "@/pages/MyStudents/MyStudents"
+import Attendance from "@/pages/Attendance/Attendance"
+import GuardianVerification from "@/pages/GuardianVerification/GuardianVerification"
 
 /**
  * Lazy loading helper with a configurable minimum loading delay.
@@ -77,9 +83,43 @@ export const router = createBrowserRouter([
             path: "dashboard",
             element: <Dashboard />,
           },
+          
+          // Admin Only Routes
           {
-            path: "registration",
-            element: <Registration />,
+            element: <RoleGuard allowedRoles={["admin"]} />,
+            children: [
+              {
+                path: "registration",
+                element: <Registration />,
+              },
+              {
+                path: "pupils",
+                element: <Pupils />,
+              },
+            ],
+          },
+
+          // Teacher & Admin Routes
+          {
+            element: <RoleGuard allowedRoles={["admin", "teacher"]} />,
+            children: [
+              {
+                path: "rfid_scan",
+                element: <RfidScan />,
+              },
+              {
+                path: "my_students",
+                element: <MyStudents />,
+              },
+              {
+                path: "attendance",
+                element: <Attendance />,
+              },
+              {
+                path: "guardian_verification",
+                element: <GuardianVerification />,
+              },
+            ],
           },
         ],
       },
