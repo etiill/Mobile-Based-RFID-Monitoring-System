@@ -18,6 +18,7 @@ class Student extends Model
         'name',
         'grade',
         'rfid',
+        'section_id',
     ];
 
     /**
@@ -26,5 +27,13 @@ class Student extends Model
     public function guardians()
     {
         return $this->hasMany(Guardian::class);
+    }
+
+    /**
+     * Get the section associated with the student.
+     */
+    public function section()
+    {
+        return $this->belongsTo(Section::class);
     }
 }

@@ -7,7 +7,10 @@ import {
   ChevronRight, 
   Menu, 
   X, 
-  Bell 
+  Bell, 
+  ScanLine,
+  UserRound,
+  Users
 } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { PATHS } from "../../routes/path"
@@ -17,7 +20,7 @@ interface SidebarProps {
   setIsCollapsed: (value: boolean) => void
 }
 
-export const routes = [
+export const ADMIN_ROUTES = [
   {
     label: "Dashboard",
     path: PATHS.APP.DASHBOARD,
@@ -25,10 +28,55 @@ export const routes = [
   },
   {
     label: "Registration",
-    path: PATHS.APP.REGISTRATION,
+    path: PATHS.APP.ADMIN.REGISTRATION,
     icon: CreditCard,
   },
+  {
+    label: "Pupils",
+    path: PATHS.APP.ADMIN.PUPILS,
+    icon: UserRound,
+  },
+  {
+    label: "RFID Scan",
+    path: PATHS.APP.TEACHER.RFID_SCAN,
+    icon: ScanLine,
+  },
+]
 
+export const TEACHER_ROUTES = [
+  {
+    label: "Dashboard",
+    path: PATHS.APP.DASHBOARD,
+    icon: LayoutGrid,
+  },
+  {
+    label: "My Students",
+    path: PATHS.APP.TEACHER.MY_STUDENTS,
+    icon: Users,
+  },
+  {
+    label: "Attendance",
+    path: PATHS.APP.TEACHER.ATTENDANCE,
+    icon: UserRound,
+  },
+  {
+    label: "RFID Scan",
+    path: PATHS.APP.TEACHER.RFID_SCAN,
+    icon: ScanLine,
+  },
+  {
+    label: "Guardian Verification",
+    path: PATHS.APP.TEACHER.GUARDIAN_VERIFICATION,
+    icon: UserRound,
+  },
+]
+
+export const GUARDIAN_ROUTES = [
+  {
+    label: "Dashboard",
+    path: PATHS.APP.GUARDIAN.DASHBOARD,
+    icon: LayoutGrid,
+  },
 ]
 
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
@@ -36,12 +84,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const user = JSON.parse(localStorage.getItem("user") || "{}")
   const role = user.role || "admin"
 
-  const filteredRoutes = routes.filter((route) => {
-    if ((role === "teacher" || role === "guardian") && route.path === PATHS.APP.REGISTRATION) {
-      return false
-    }
-    return true
-  })
+  const filteredRoutes = 
+    role === "admin" ? ADMIN_ROUTES :
+    role === "teacher" ? TEACHER_ROUTES :
+    role === "guardian" ? GUARDIAN_ROUTES :
+    GUARDIAN_ROUTES;
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen)

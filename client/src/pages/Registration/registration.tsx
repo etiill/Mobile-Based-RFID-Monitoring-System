@@ -28,6 +28,20 @@ interface Student {
   grade: string
   rfid: string
   guardians: Guardian[]
+  section_id?: string | number | null
+  section?: Section | null
+}
+
+interface Section {
+  id: string | number
+  year_level: string
+  section_name: string
+  teacher_id: string | number | null
+  teacher?: {
+    id: string | number
+    name: string
+    email: string
+  } | null
 }
 
 export function Registration() {
@@ -50,7 +64,18 @@ export function Registration() {
         setIsLoadingStudents(false)
       }
     }
+
+    const fetchSections = async () => {
+      try {
+        const data = await ApiHandler.get<Section[]>("/sections")
+        setSections(data)
+      } catch (error) {
+        console.error("Failed to load sections:", error)
+      }
+    }
+
     fetchStudents()
+    fetchSections()
   }, [])
 
   // Search State
@@ -72,7 +97,7 @@ export function Registration() {
   const [editingStudentId, setEditingStudentId] = useState<string | number | null>(null)
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<"students" | "teachers">("students")
+  const [activeTab, setActiveTab] = useState<"students" | "teachers" | "sections" | null>(null)
 
   // Teachers State
   const [teachers, setTeachers] = useState<any[]>([])
@@ -87,8 +112,8 @@ export function Registration() {
 
   // Student Form State
   const [studentName, setStudentName] = useState("")
-  const [studentGrade, setStudentGrade] = useState("K-1")
   const [studentRfid, setStudentRfid] = useState("")
+  const [studentSectionId, setStudentSectionId] = useState<string | number>("")
 
   // Guardian Form State
   const [guardianName, setGuardianName] = useState("")
@@ -98,9 +123,20 @@ export function Registration() {
   const [guardianPassword, setGuardianPassword] = useState("")
   const [guardianConfirmPassword, setGuardianConfirmPassword] = useState("")
 
+  // Sections State
+  const [sections, setSections] = useState<Section[]>([])
+  const [isLoadingSections, setIsLoadingSections] = useState(false)
+
+  // Section Modal & Form State
+  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false)
+  const [editingSectionId, setEditingSectionId] = useState<string | number | null>(null)
+  const [sectionYearLevel, setSectionYearLevel] = useState("K-1")
+  const [sectionName, setSectionName] = useState("")
+  const [sectionTeacherId, setSectionTeacherId] = useState<string | number>("")
+
   // Actions
   useEffect(() => {
-    if (activeTab === "teachers") {
+    if (activeTab === "teachers" || activeTab === "sections") {
       const fetchTeachers = async () => {
         setIsLoadingTeachers(true)
         try {
@@ -121,12 +157,117 @@ export function Registration() {
     }
   }, [activeTab])
 
+  useEffect(() => {
+    if (activeTab === "sections") {
+      const fetchSections = async () => {
+        setIsLoadingSections(true)
+        try {
+          const data = await ApiHandler.get<Section[]>("/sections")
+          setSections(data)
+        } catch (error) {
+          console.error("Failed to load sections:", error)
+          toast.add({
+            title: "Error Loading Data",
+            description: "Could not fetch sections list from the server.",
+            type: "error",
+          })
+        } finally {
+          setIsLoadingSections(false)
+        }
+      }
+      fetchSections()
+    }
+  }, [activeTab])
+
   const handleCloseTeacherModal = () => {
     setIsTeacherModalOpen(false)
     setTeacherName("")
     setTeacherEmail("")
     setTeacherPassword("")
     setTeacherConfirmPassword("")
+  }
+
+  const handleCloseSectionModal = () => {
+    setIsSectionModalOpen(false)
+    setEditingSectionId(null)
+    setSectionYearLevel("K-1")
+    setSectionName("")
+    setSectionTeacherId("")
+  }
+
+  const handleSectionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!sectionYearLevel.trim() || !sectionName.trim()) return
+
+    const payload = {
+      year_level: sectionYearLevel,
+      section_name: sectionName,
+      teacher_id: sectionTeacherId || null,
+    }
+
+    if (editingSectionId) {
+      try {
+        const response = await ApiHandler.put<Section>(`/sections/${editingSectionId}`, payload)
+        setSections(
+          sections.map((sec) => (sec.id === editingSectionId ? response : sec))
+        )
+        toast.add({
+          title: "Section Updated",
+          description: `Section ${sectionName} has been updated successfully.`,
+          type: "success",
+        })
+        handleCloseSectionModal()
+      } catch (err: any) {
+        toast.add({
+          title: "Update Failed",
+          description: err.message || "Failed to update section.",
+          type: "error",
+        })
+      }
+    } else {
+      try {
+        const response = await ApiHandler.post<Section>("/sections", payload)
+        setSections([...sections, response])
+        toast.add({
+          title: "Section Registered",
+          description: `Section ${sectionName} has been registered successfully.`,
+          type: "success",
+        })
+        handleCloseSectionModal()
+      } catch (err: any) {
+        toast.add({
+          title: "Registration Failed",
+          description: err.message || "Failed to register section.",
+          type: "error",
+        })
+      }
+    }
+  }
+
+  const handleEditSectionClick = (sec: Section) => {
+    setEditingSectionId(sec.id)
+    setSectionYearLevel(sec.year_level)
+    setSectionName(sec.section_name)
+    setSectionTeacherId(sec.teacher_id || "")
+    setIsSectionModalOpen(true)
+  }
+
+  const handleDeleteSection = async (id: string | number) => {
+    try {
+      await ApiHandler.delete(`/sections/${id}`)
+      setSections(sections.filter((sec) => sec.id !== id))
+      toast.add({
+        title: "Section Removed",
+        description: "Section deleted successfully.",
+        type: "success",
+      })
+    } catch (err: any) {
+      toast.add({
+        title: "Deletion Failed",
+        description: err.message || "Failed to delete section.",
+        type: "error",
+      })
+    }
   }
 
   const getPasswordStrength = (password: string) => {
@@ -214,43 +355,59 @@ export function Registration() {
     setIsStudentModalOpen(false)
     setEditingStudentId(null)
     setStudentName("")
-    setStudentGrade("K-1")
     setStudentRfid("")
+    setStudentSectionId("")
   }
 
   const handleEditStudentClick = (student: Student) => {
     setEditingStudentId(student.id)
     setStudentName(student.name)
-    // Strip "Grade: " prefix if present to match dropdown options
-    const cleanGrade = student.grade.startsWith("Grade: ") 
-      ? student.grade.replace("Grade: ", "") 
-      : student.grade
-    setStudentGrade(cleanGrade)
     // Strip "RFID-" prefix if present to match standard input format
     const cleanRfid = student.rfid.startsWith("RFID-") 
       ? student.rfid.replace("RFID-", "") 
       : student.rfid
     setStudentRfid(cleanRfid)
+    setStudentSectionId(student.section_id || "")
     setIsStudentModalOpen(true)
   }
 
   const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!studentName.trim() || !studentRfid.trim()) return
+    if (!studentName.trim() || !studentRfid.trim() || !studentSectionId) {
+      toast.add({
+        title: "Validation Failed",
+        description: "Please fill out all required fields, including class section.",
+        type: "error",
+      })
+      return
+    }
+
+    const selectedSec = sections.find(s => s.id.toString() === studentSectionId.toString())
+    if (!selectedSec) {
+      toast.add({
+        title: "Validation Failed",
+        description: "Selected class section is invalid.",
+        type: "error",
+      })
+      return
+    }
 
     const formattedRfid = studentRfid.startsWith("RFID-") ? studentRfid : `RFID-${studentRfid}`
-    const formattedGrade = `Grade: ${studentGrade}`
+    const formattedGrade = `Grade: ${selectedSec.year_level}`
+
+    const payload = {
+      name: studentName,
+      grade: formattedGrade,
+      rfid: formattedRfid,
+      section_id: studentSectionId,
+    }
 
     if (editingStudentId) {
       try {
-        const response = await ApiHandler.put<Student>(`/students/${editingStudentId}`, {
-          name: studentName,
-          grade: formattedGrade,
-          rfid: formattedRfid,
-        })
+        const response = await ApiHandler.put<Student>(`/students/${editingStudentId}`, payload)
 
         setStudents(
-          students.map((student) => (student.id === editingStudentId ? { ...student, ...response } : student))
+          students.map((student) => (student.id === editingStudentId ? response : student))
         )
 
         toast.add({
@@ -269,11 +426,7 @@ export function Registration() {
       }
     } else {
       try {
-        const response = await ApiHandler.post<Student>("/students", {
-          name: studentName,
-          grade: formattedGrade,
-          rfid: formattedRfid,
-        })
+        const response = await ApiHandler.post<Student>("/students", payload)
 
         setStudents([...students, response])
         
@@ -405,8 +558,81 @@ export function Registration() {
     }
   }
 
+  if (activeTab === null) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 space-y-8 animate-fade-in text-neutral font-sans">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-extrabold tracking-tight text-primary">Registration Workspace</h1>
+          <p className="text-muted-foreground max-w-md mx-auto text-sm font-semibold">
+            Select a module to manage school registries, class structures, and access credentials.
+          </p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-3 pt-4">
+          {/* Card 1: Students & Guardians */}
+          <div 
+            onClick={() => setActiveTab("students")}
+            className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 text-[#4F46E5] border border-indigo-100 dark:border-indigo-900/30 group-hover:scale-110 transition-transform">
+              <Users className="h-6 w-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-bold text-sm text-primary">Students & Guardians</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
+                Register new student profiles and set up emergency authorized parent credentials.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 2: Class Teachers */}
+          <div 
+            onClick={() => setActiveTab("teachers")}
+            className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 dark:bg-sky-950/20 text-[#0284C7] border border-sky-100 dark:border-sky-900/30 group-hover:scale-110 transition-transform">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-bold text-sm text-primary">Class Teachers</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
+                Create teacher accounts and configure workspace classroom assignments.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3: Year Levels & Sections */}
+          <div 
+            onClick={() => setActiveTab("sections")}
+            className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-[#10B981] border border-emerald-100 dark:border-emerald-900/30 group-hover:scale-110 transition-transform">
+              <Plus className="h-6 w-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-bold text-sm text-primary">Year Levels & Sections</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
+                Establish year levels, define classroom sections, and assign teachers.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
+      
+      {/* Back to selector link */}
+      <div className="pt-2">
+        <button
+          onClick={() => setActiveTab(null)}
+          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-primary transition-all bg-transparent border-none cursor-pointer p-0"
+        >
+          &larr; Back to Modules
+        </button>
+      </div>
       
       {/* Header Panel */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -416,25 +642,32 @@ export function Registration() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-primary">
-              {activeTab === "students" ? "Student & Guardian Registration" : "Teacher Account Registration"}
+              {activeTab === "students" 
+                ? "Student & Guardian Registration" 
+                : activeTab === "teachers" 
+                  ? "Teacher Account Registration"
+                  : "Year Level & Section Registration"
+              }
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {activeTab === "students" 
                 ? "Step 2: Register students and authorized guardians to ensure secure entry and exit protocols."
-                : "Manage and register teacher accounts to access the daily attendance workspaces."
+                : activeTab === "teachers"
+                  ? "Manage and register teacher accounts to access the daily attendance workspaces."
+                  : "Manage year levels, sections, and assign class teachers for each class."
               }
             </p>
           </div>
         </div>
         
         {/* Dynamic CTA */}
-        {activeTab === "students" ? (
+        {activeTab === "students" && (
           <button
             onClick={() => {
               setEditingStudentId(null)
               setStudentName("")
-              setStudentGrade("K-1")
               setStudentRfid("")
+              setStudentSectionId("")
               setIsStudentModalOpen(true)
             }}
             className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
@@ -442,7 +675,8 @@ export function Registration() {
             <UserPlus className="h-4 w-4" />
             <span>Add Student</span>
           </button>
-        ) : (
+        )}
+        {activeTab === "teachers" && (
           <button
             onClick={() => setIsTeacherModalOpen(true)}
             className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
@@ -451,31 +685,24 @@ export function Registration() {
             <span>Add Teacher</span>
           </button>
         )}
+        {activeTab === "sections" && (
+          <button
+            onClick={() => {
+              setEditingSectionId(null)
+              setSectionYearLevel("K-1")
+              setSectionName("")
+              setSectionTeacherId("")
+              setIsSectionModalOpen(true)
+            }}
+            className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Section</span>
+          </button>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border">
-        <button
-          onClick={() => setActiveTab("students")}
-          className={`px-6 py-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-            activeTab === "students"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-neutral"
-          }`}
-        >
-          Students & Guardians
-        </button>
-        <button
-          onClick={() => setActiveTab("teachers")}
-          className={`px-6 py-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-            activeTab === "teachers"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-neutral"
-          }`}
-        >
-          Class Teachers
-        </button>
-      </div>
+
 
       {activeTab === "students" ? (
         <>
@@ -528,7 +755,25 @@ export function Registration() {
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-primary">{student.name}</h3>
-                      <p className="text-xs text-muted-foreground font-semibold mt-0.5">{student.grade}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground font-semibold">
+                          {student.grade}
+                        </span>
+                        {student.section ? (
+                          <span className="rounded-full bg-blue-50 dark:bg-blue-950/20 text-blue-600 border border-blue-100 dark:border-blue-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                            Section: {student.section.section_name}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                            No Section
+                          </span>
+                        )}
+                        {student.section?.teacher && (
+                          <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                            Teacher: {student.section.teacher.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -617,7 +862,7 @@ export function Registration() {
             </button>
           </div>
         </>
-      ) : (
+      ) : activeTab === "teachers" ? (
         <>
           {/* Teachers Section */}
           {isLoadingTeachers ? (
@@ -669,6 +914,76 @@ export function Registration() {
             </div>
           )}
         </>
+      ) : (
+        <>
+          {/* Sections Section */}
+          {isLoadingSections ? (
+            <div className="min-h-[350px] flex items-center justify-center bg-card border border-border rounded-2xl p-8">
+              <LoadingScreen fullScreen={false} />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {sections.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 border border-dashed border-border rounded-2xl bg-card text-center space-y-3">
+                  <Users className="h-10 w-10 text-muted-foreground opacity-40 animate-pulse" />
+                  <h3 className="text-sm font-bold text-primary">No sections registered</h3>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    There are currently no year levels & sections created. Click "Add Section" in the top-right to register a new class.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
+                  {sections.map((sec) => (
+                    <div key={sec.id} className="rounded-2xl border border-border bg-card shadow-sm p-5 flex items-center justify-between transition-all hover:shadow-md hover:border-border/80">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold">
+                          {sec.year_level.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-primary dark:text-foreground">
+                            {sec.year_level} - {sec.section_name}
+                          </h3>
+                          <div className="mt-2.5">
+                            {sec.teacher ? (
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                                  Class Teacher:
+                                </span>
+                                <span className="text-xs font-semibold text-neutral">
+                                  {sec.teacher.name}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
+                                Unassigned
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleEditSectionClick(sec)}
+                          className="p-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
+                          title="Edit Section"
+                        >
+                          <Pencil className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSection(sec.id)}
+                          className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
+                          title="Remove Section"
+                        >
+                          <Trash2 className="h-4.5 w-4.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Bottom Footer Info */}
@@ -710,16 +1025,19 @@ export function Registration() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-neutral/80">Grade Level</label>
+                <label className="text-xs font-bold text-neutral/80">Class Section</label>
                 <select
-                  value={studentGrade}
-                  onChange={(e) => setStudentGrade(e.target.value)}
+                  value={studentSectionId}
+                  onChange={(e) => setStudentSectionId(e.target.value)}
                   className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  required
                 >
-                  <option value="K-1">K-1</option>
-                  <option value="K-2">K-2</option>
-                  <option value="Nursery">Nursery</option>
-                  <option value="Grade 1">Grade 1</option>
+                  <option value="">-- Select Class Section --</option>
+                  {sections.map((sec) => (
+                    <option key={sec.id} value={sec.id}>
+                      {sec.year_level} - {sec.section_name} {sec.teacher ? `(Teacher: ${sec.teacher.name})` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1002,6 +1320,86 @@ export function Registration() {
                   className="flex-1 py-2.5 rounded-lg bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none font-sans disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Register Teacher
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD/EDIT SECTION */}
+      {isSectionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <h2 className="text-base font-bold text-primary">
+                {editingSectionId ? "Edit Section Details" : "Register New Section"}
+              </h2>
+              <button 
+                onClick={handleCloseSectionModal}
+                className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSectionSubmit} className="space-y-4 mt-4 font-sans">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Year Level</label>
+                <select
+                  value={sectionYearLevel}
+                  onChange={(e) => setSectionYearLevel(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                >
+                  <option value="K-1">K-1</option>
+                  <option value="K-2">K-2</option>
+                  <option value="Nursery">Nursery</option>
+                  <option value="Grade 1">Grade 1</option>
+                  <option value="Grade 2">Grade 2</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Section Name</label>
+                <input
+                  type="text"
+                  value={sectionName}
+                  onChange={(e) => setSectionName(e.target.value)}
+                  placeholder="e.g. Apple, Sun, Daisy"
+                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Assign Class Teacher</label>
+                <select
+                  value={sectionTeacherId}
+                  onChange={(e) => setSectionTeacherId(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                >
+                  <option value="">-- Select Teacher (Optional) --</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name} ({teacher.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseSectionModal}
+                  className="flex-1 py-2.5 rounded-lg border border-border text-xs font-bold bg-transparent text-muted-foreground hover:bg-tertiary transition-all cursor-pointer font-sans"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-lg bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none font-sans"
+                >
+                  {editingSectionId ? "Update Section" : "Save Section"}
                 </button>
               </div>
             </form>

@@ -16,7 +16,7 @@ class StudentController extends Controller
      */
     public function index()
     {
-        $students = Student::with('guardians')->get();
+        $students = Student::with(['guardians', 'section.teacher'])->get();
         return response()->json($students, 200);
     }
 
@@ -29,6 +29,7 @@ class StudentController extends Controller
             'name' => 'required|string|max:255',
             'grade' => 'required|string|max:255',
             'rfid' => 'required|string|unique:students,rfid|max:255',
+            'section_id' => 'nullable|exists:sections,id',
         ]);
 
         if ($validator->fails()) {
@@ -40,8 +41,8 @@ class StudentController extends Controller
 
         $student = Student::create($request->all());
         
-        // Eager load guardians (will be empty array initially)
-        $student->load('guardians');
+        // Eager load relations
+        $student->load(['guardians', 'section.teacher']);
 
         return response()->json($student, 201);
     }
@@ -63,6 +64,7 @@ class StudentController extends Controller
             'name' => 'required|string|max:255',
             'grade' => 'required|string|max:255',
             'rfid' => 'required|string|unique:students,rfid,' . $id . '|max:255',
+            'section_id' => 'nullable|exists:sections,id',
         ]);
 
         if ($validator->fails()) {
@@ -74,7 +76,7 @@ class StudentController extends Controller
 
         $student->update($request->all());
         
-        $student->load('guardians');
+        $student->load(['guardians', 'section.teacher']);
 
         return response()->json($student, 200);
     }

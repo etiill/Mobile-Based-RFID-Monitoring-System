@@ -19,7 +19,10 @@ export function AuthGuard() {
 
   if (isAuthenticated) {
     const user = JSON.parse(localStorage.getItem("user") || "{}")
-    if ((user.role === "teacher" || user.role === "guardian") && location.pathname === PATHS.APP.REGISTRATION) {
+    if ((user.role === "teacher" || user.role === "guardian") && location.pathname === PATHS.APP.ADMIN.REGISTRATION) {
+      return <Navigate to={PATHS.APP.DASHBOARD} replace />
+    }
+    if (user.role === "guardian" && (location.pathname === PATHS.APP.ADMIN.PUPILS || location.pathname === PATHS.APP.TEACHER.RFID_SCAN || location.pathname === PATHS.APP.TEACHER.MY_STUDENTS)) {
       return <Navigate to={PATHS.APP.DASHBOARD} replace />
     }
   }
