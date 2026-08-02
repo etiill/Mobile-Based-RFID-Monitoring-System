@@ -14,11 +14,14 @@ class StudentSeeder extends Seeder
      */
     public function run(): void
     {
+        $section = \App\Models\Section::where('section_name', 'Alpha')->first();
+
         $emma = Student::firstOrCreate(
             ['rfid' => 'RFID-001234'],
             [
                 'name' => 'Emma Johnson',
                 'grade' => 'K-1',
+                'section_id' => $section?->id,
             ]
         );
 

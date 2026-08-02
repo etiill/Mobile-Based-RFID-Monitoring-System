@@ -10,6 +10,7 @@ export const PATHS = {
     ROOT: APP_ROOT,
     DASHBOARD: `${APP_ROOT}/dashboard`,
     USERS: `${APP_ROOT}/users`,
+    PROFILE: `${APP_ROOT}/profile`,
 
     // Admin Routes
     ADMIN: {
@@ -23,11 +24,13 @@ export const PATHS = {
       MY_STUDENTS: `${APP_ROOT}/my_students`,
       ATTENDANCE: `${APP_ROOT}/attendance`,
       GUARDIAN_VERIFICATION: `${APP_ROOT}/guardian_verification`,
+      REPORTS: `${APP_ROOT}/reports`,
     },
 
     // Guardian Routes
     GUARDIAN: {
       DASHBOARD: `${APP_ROOT}/dashboard`,
+      PICKUP: `${APP_ROOT}/pickup`,
     }
   },
 

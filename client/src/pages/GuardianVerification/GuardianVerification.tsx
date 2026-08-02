@@ -13,7 +13,9 @@ import {
   Fingerprint, 
   Info,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  QrCode,
+  RefreshCw
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -67,7 +69,6 @@ interface VerificationHistory {
 
 export function GuardianVerification() {
   const [students, setStudents] = useState<Student[]>([])
-  const [sections, setSections] = useState<Section[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Modals & States
@@ -82,6 +83,11 @@ export function GuardianVerification() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false)
   const [manualStudentId, setManualStudentId] = useState("")
   const [manualGuardianId, setManualGuardianId] = useState("")
+
+  // QR Code States
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false)
+  const [qrToken, setQrToken] = useState("")
+  const [qrTokenExpiry, setQrTokenExpiry] = useState<number>(300)
 
   // Active logged-in teacher info
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
@@ -113,83 +119,21 @@ export function GuardianVerification() {
     }
   ])
 
-  // Fetch teacher students
+  const authToken = localStorage.getItem("token") || ""
+
+  // Fetch teacher registries
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const [studentsData, sectionsData] = await Promise.all([
+        const [studentsData, pendingData] = await Promise.all([
           ApiHandler.get<Student[]>("/students"),
-          ApiHandler.get<Section[]>("/sections")
+          ApiHandler.get<PendingVerification[]>("/v1/dismissal/pending")
         ])
         setStudents(studentsData)
-        setSections(sectionsData)
-
-        // Generate dynamic pending list from the teacher's actual students
-        const teacherStudents = studentsData.filter(s => 
-          s.section?.teacher_id?.toString() === teacherId?.toString()
-        )
-
-        // Map some mock pending cards based on actual section guardians
-        const initialPending: PendingVerification[] = []
-        let cardId = 1
-        
-        teacherStudents.forEach((student) => {
-          if (student.guardians && student.guardians.length > 0 && initialPending.length < 4) {
-            const firstGuardian = student.guardians[0]
-            initialPending.push({
-              id: `P00${cardId++}`,
-              guardianName: firstGuardian.name,
-              relation: firstGuardian.relation.toUpperCase(),
-              studentName: student.name,
-              studentId: student.id,
-              classLabel: student.section ? `${student.section.year_level} - ${student.section.section_name}` : student.grade
-            })
-          }
-        })
-
-        // Fallback placeholders if teacher has no registered students/guardians yet
-        if (initialPending.length === 0) {
-          initialPending.push(
-            {
-              id: "P001",
-              guardianName: "Mark Stevenson",
-              relation: "FATHER",
-              studentName: "Leo Stevenson",
-              studentId: 101,
-              classLabel: "Grade 2 - B"
-            },
-            {
-              id: "P002",
-              guardianName: "Elena Rodriguez",
-              relation: "NANNY",
-              studentName: "Maya Chen",
-              studentId: 102,
-              classLabel: "Grade 2 - B"
-            },
-            {
-              id: "P003",
-              guardianName: "Judith Black",
-              relation: "GRANDMOTHER",
-              studentName: "Oliver Black",
-              studentId: 103,
-              classLabel: "Grade 2 - B"
-            },
-            {
-              id: "P004",
-              guardianName: "Sarah Wilson",
-              relation: "MOTHER",
-              studentName: "Liam Wilson",
-              studentId: 104,
-              classLabel: "Grade 2 - B"
-            }
-          )
-        }
-
-        setPendingList(initialPending)
-
+        setPendingList(pendingData)
       } catch (error) {
-        console.error("Failed to load students:", error)
+        console.error("Failed to load registries:", error)
         toast.add({
           title: "Error Loading Data",
           description: "Could not fetch registries from server.",
@@ -199,9 +143,109 @@ export function GuardianVerification() {
         setIsLoading(false)
       }
     }
-
     fetchData()
   }, [teacherId])
+
+  // Setup real-time updates (SSE with polling fallback) for teacher
+  useEffect(() => {
+    if (!teacherId) return
+
+    let eventSource: EventSource | null = null
+    let pollInterval: any = null
+
+    const startSSE = () => {
+      const streamUrl = `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/v1/dismissal/stream?token=${authToken}&role=teacher&teacher_id=${teacherId}`
+      
+      eventSource = new EventSource(streamUrl)
+
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data)
+          if (Array.isArray(parsed)) {
+            setPendingList(parsed)
+          }
+        } catch (err) {
+          console.error("Error parsing SSE data:", err)
+        }
+      }
+
+      eventSource.onerror = (err) => {
+        console.warn("SSE connection error, falling back to polling...", err)
+        if (eventSource) {
+          eventSource.close()
+        }
+        startPolling()
+      }
+    }
+
+    const startPolling = () => {
+      if (pollInterval) clearInterval(pollInterval)
+      
+      const fetchPending = async () => {
+        try {
+          const res = await ApiHandler.get<PendingVerification[]>("/v1/dismissal/pending")
+          setPendingList(res)
+        } catch (err) {
+          console.error("Failed to poll pending list:", err)
+        }
+      }
+
+      // Initial check
+      fetchPending()
+      // Poll every 3.5 seconds
+      pollInterval = setInterval(fetchPending, 3500)
+    }
+
+    // Try starting Server-Sent Events first
+    startSSE()
+
+    return () => {
+      if (eventSource) {
+        eventSource.close()
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
+    }
+  }, [teacherId, authToken])
+
+  const fetchNewQrToken = async () => {
+    try {
+      const res = await ApiHandler.post<{ token: string; expires_at: string }>("/v1/dismissal/generate-token")
+      setQrToken(res.token)
+      setQrTokenExpiry(300)
+    } catch (err: any) {
+      console.error("Failed to generate QR token:", err)
+      toast.add({
+        title: "QR Error",
+        description: err.message || "Failed to generate dynamic Station QR.",
+        type: "error"
+      })
+    }
+  }
+
+  // Handle QR Modal opening
+  const handleOpenQrModal = () => {
+    setIsQrModalOpen(true)
+    fetchNewQrToken()
+  }
+
+  // QR Token countdown effect
+  useEffect(() => {
+    if (!isQrModalOpen || !qrToken) return
+
+    const timer = setInterval(() => {
+      setQrTokenExpiry((prev) => {
+        if (prev <= 1) {
+          fetchNewQrToken()
+          return 300
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isQrModalOpen, qrToken])
 
   // Simulate RFID/Face ID scanner scanning progress
   useEffect(() => {
@@ -233,36 +277,48 @@ export function GuardianVerification() {
   }
 
   // Confirm verification, remove from pending, and add to history
-  const handleConfirmVerification = (status: "Success" | "Flagged") => {
+  const handleConfirmVerification = async (status: "Success" | "Flagged") => {
     const activeItem = selectedPending || detectedGuardian
     if (!activeItem) return
 
-    const now = new Date()
-    const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-    const dateString = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    try {
+      await ApiHandler.post(`/v1/dismissal/verify/${activeItem.id}`, {
+        status: status === "Success" ? "success" : "flagged"
+      })
 
-    // Add to history log
-    const newRecord: VerificationHistory = {
-      id: `H00${historyList.length + 1}`,
-      time: timeString,
-      date: dateString,
-      studentName: activeItem.studentName,
-      guardianName: activeItem.guardianName,
-      relationship: activeItem.relation,
-      verifiedBy: teacherName,
-      status
+      const now = new Date()
+      const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+      const dateString = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+
+      // Add to history log
+      const newRecord: VerificationHistory = {
+        id: `H00${historyList.length + 1}`,
+        time: timeString,
+        date: dateString,
+        studentName: activeItem.studentName,
+        guardianName: activeItem.guardianName,
+        relationship: activeItem.relation,
+        verifiedBy: teacherName,
+        status
+      }
+
+      setHistoryList(prev => [newRecord, ...prev])
+      setPendingList(prev => prev.filter(item => item.id !== activeItem.id))
+
+      toast.add({
+        title: status === "Success" ? "Guardian Approved" : "Verification Flagged",
+        description: status === "Success"
+          ? `Successfully logged secure student dismissal handover for ${activeItem.studentName}.`
+          : `Handover flagged. Parent/Guardian access was marked suspicious.`,
+        type: status === "Success" ? "success" : "error"
+      })
+    } catch (err: any) {
+      toast.add({
+        title: "Verification Failed",
+        description: err.message || "Failed to log verification on server.",
+        type: "error"
+      })
     }
-
-    setHistoryList(prev => [newRecord, ...prev])
-    setPendingList(prev => prev.filter(item => item.id !== activeItem.id))
-
-    toast.add({
-      title: status === "Success" ? "Guardian Approved" : "Verification Flagged",
-      description: status === "Success"
-        ? `Successfully logged secure student dismissal handover for ${activeItem.studentName}.`
-        : `Handover flagged. Parent/Guardian access was marked suspicious.`,
-      type: status === "Success" ? "success" : "error"
-    })
 
     // Reset modals
     setIsVerifyModalOpen(false)
@@ -282,7 +338,7 @@ export function GuardianVerification() {
   }
 
   // Manual pickup submit handler
-  const handleManualCheckIn = (e: React.FormEvent) => {
+  const handleManualCheckIn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!manualStudentId || !manualGuardianId) {
       toast.add({
@@ -299,31 +355,44 @@ export function GuardianVerification() {
     const guardianObj = studentObj.guardians.find(g => g.id?.toString() === manualGuardianId.toString())
     if (!guardianObj) return
 
-    const now = new Date()
-    const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-    const dateString = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    try {
+      await ApiHandler.post("/v1/dismissal/manual", {
+        student_id: studentObj.id,
+        guardian_id: guardianObj.id,
+      })
 
-    const newRecord: VerificationHistory = {
-      id: `H00${historyList.length + 1}`,
-      time: timeString,
-      date: dateString,
-      studentName: studentObj.name,
-      guardianName: guardianObj.name,
-      relationship: guardianObj.relation.toUpperCase(),
-      verifiedBy: teacherName,
-      status: "Success"
+      const now = new Date()
+      const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+      const dateString = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+
+      const newRecord: VerificationHistory = {
+        id: `H00${historyList.length + 1}`,
+        time: timeString,
+        date: dateString,
+        studentName: studentObj.name,
+        guardianName: guardianObj.name,
+        relationship: guardianObj.relation.toUpperCase(),
+        verifiedBy: teacherName,
+        status: "Success"
+      }
+
+      setHistoryList(prev => [newRecord, ...prev])
+      
+      // Remove from pending if match exists
+      setPendingList(prev => prev.filter(item => item.studentName.toLowerCase() !== studentObj.name.toLowerCase()))
+
+      toast.add({
+        title: "Manual Verification Logged",
+        description: `Manual dismissal check-in created for ${studentObj.name}.`,
+        type: "success"
+      })
+    } catch (err: any) {
+      toast.add({
+        title: "Check-in Failed",
+        description: err.message || "Failed to log manual dismissal on server.",
+        type: "error"
+      })
     }
-
-    setHistoryList(prev => [newRecord, ...prev])
-    
-    // Remove from pending if match exists
-    setPendingList(prev => prev.filter(item => item.studentName.toLowerCase() !== studentObj.name.toLowerCase()))
-
-    toast.add({
-      title: "Manual Verification Logged",
-      description: `Manual dismissal check-in created for ${studentObj.name}.`,
-      type: "success"
-    })
 
     // Reset
     setIsManualModalOpen(false)
@@ -402,25 +471,17 @@ export function GuardianVerification() {
             Safe & Secure Pickup
           </h1>
           <p className="text-muted-foreground max-w-2xl text-xs sm:text-sm font-semibold leading-relaxed">
-            Ready to verify a guardian for end-of-day dismissal? Use our instant RFID or Face-ID scanner for rapid verification and secure student handovers.
+            Ready to verify a guardian for end-of-day dismissal? Display the Station QR code for secure student handovers.
           </p>
         </div>
         
         <div className="flex flex-wrap gap-4 pt-1">
           <button
-            onClick={handleLaunchScanner}
-            className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-6 py-3.5 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none"
+            onClick={handleOpenQrModal}
+            className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-xs font-bold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition-all cursor-pointer border-none"
           >
-            <Scan className="h-4 w-4" />
-            <span>LAUNCH SCANNER</span>
-          </button>
-          
-          <button
-            onClick={() => setIsManualModalOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-transparent border-2 border-primary hover:bg-primary/5 px-6 py-3.5 text-xs font-bold text-primary shadow-sm active:scale-[0.99] transition-all cursor-pointer"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            <span>MANUAL CHECK-IN</span>
+            <QrCode className="h-4 w-4" />
+            <span>SHOW STATION QR</span>
           </button>
         </div>
       </div>
@@ -909,6 +970,94 @@ export function GuardianVerification() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: DYNAMIC STATION QR CODE */}
+      {isQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border text-neutral text-xs font-sans">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                <span>Station / Gate QR Code</span>
+              </h2>
+              <button
+                onClick={() => {
+                  setIsQrModalOpen(false)
+                  setQrToken("")
+                }}
+                className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6 mt-6 flex flex-col items-center justify-center font-sans font-semibold">
+              <p className="text-[11px] text-muted-foreground text-center font-medium leading-relaxed max-w-xs">
+                Guardians should scan this code at the gate/classroom to verify their pickup ticket. The token refreshes automatically.
+              </p>
+
+              {/* QR Image Frame */}
+              <div className="relative p-4 bg-white rounded-2xl border border-border/80 shadow-md">
+                {qrToken ? (
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrToken}`}
+                    alt="Station Gate QR Code"
+                    className="w-[200px] h-[200px] block"
+                  />
+                ) : (
+                  <div className="w-[200px] h-[200px] flex items-center justify-center text-muted-foreground bg-tertiary/20 rounded-xl">
+                    <RefreshCw className="h-8 w-8 animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* Countdown and token copy helper */}
+              {qrToken && (
+                <div className="w-full space-y-4 text-center">
+                  <div className="flex justify-center items-center gap-1.5 text-xs">
+                    <Clock className="h-4 w-4 text-amber-500 animate-pulse" />
+                    <span className="text-muted-foreground">Token expires in:</span>
+                    <span className="font-mono font-extrabold text-amber-600">
+                      {Math.floor(qrTokenExpiry / 60)}m {qrTokenExpiry % 60}s
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-border/80 rounded-xl space-y-1.5 text-left">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-muted-foreground font-bold">ACTIVE DEV TOKEN:</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(qrToken)
+                          toast.add({
+                            title: "Token Copied",
+                            description: "Copied to clipboard for Simulator testing.",
+                            type: "success"
+                          })
+                        }}
+                        className="text-primary font-bold hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        Copy Token
+                      </button>
+                    </div>
+                    <div className="font-mono text-[10px] text-neutral-800 break-all select-all font-bold">
+                      {qrToken}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual refresh button */}
+              <button
+                onClick={fetchNewQrToken}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 py-3 text-xs font-bold text-neutral cursor-pointer border-none transition-all"
+              >
+                <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                <span>REGENERATE STATION QR</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

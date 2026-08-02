@@ -35,6 +35,11 @@ class Admin extends Authenticatable
         'password',
         'role',
         'role_id',
+        'phone',
+        'birth_date',
+        'faculty_classification',
+        'location',
+        'title',
     ];
 
     /**

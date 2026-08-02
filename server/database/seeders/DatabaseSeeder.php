@@ -35,13 +35,31 @@ class DatabaseSeeder extends Seeder
         $teacherUser = Admin::firstOrCreate(
             ['email' => 'teacher@fcu.edu'],
             [
-                'name' => 'Jane Smith',
+                'name' => 'Ana Maria Reyes',
                 'password' => Hash::make('password'),
                 'role' => 'teacher',
+                'title' => 'KINDERGARTEN LEAD TEACHER',
+                'phone' => '0917 555 1234',
+                'birth_date' => 'March 15, 1992',
+                'faculty_classification' => 'Regular Faculty',
+                'location' => 'Quezon City, PH',
             ]
         );
+        $teacherUser->update([
+            'name' => 'Ana Maria Reyes',
+            'title' => 'KINDERGARTEN LEAD TEACHER',
+            'phone' => '0917 555 1234',
+            'birth_date' => 'March 15, 1992',
+            'faculty_classification' => 'Regular Faculty',
+            'location' => 'Quezon City, PH',
+        ]);
         $teacherUser->role_id = $teacherRole->id;
         $teacherUser->save();
+
+        \App\Models\Section::firstOrCreate(
+            ['section_name' => 'Alpha', 'year_level' => 'K-1'],
+            ['teacher_id' => $teacherUser->id]
+        );
 
         $this->call(StudentSeeder::class);
     }
