@@ -92,6 +92,29 @@ Use these pre-seeded accounts to log in and test different system dashboards:
 | :--- | :--- | :--- |
 | **Administrator** | `admin@fcu.edu` | `password` |
 | **Class Teacher** | `teacher@fcu.edu` | `password` |
+| **Parent/Guardian** | `guardian@fcu.edu` | `password` |
+
+---
+
+## 🎯 Key Modules & Features
+
+### 👤 Teacher Profile
+- **Consolidated Summary**: View full legal name, birth date, location, title, and assigned classroom section metadata.
+- **Dynamic Student Tracking**: Automatically calculates and displays the total number of assigned pupils.
+- **Inline Editing**: Allows instant profile updates and secure password changes.
+
+### 📊 Reports Page Dashboard
+- **Daily Attendance Report**: Real-time stats breakdown (Present, Late, Absent) by classroom section with table grid reports.
+- **Weekly Attendance Report**: visualizes section attendance compliance ratings.
+- **Monthly Attendance Report**: Computes student-by-student attendance ratios for monthly record compilations.
+- **Pickup Handover Logs**: Displays secure dismissal handover timeline logs fetched directly from the server database (Pupil, Guardian, relationship, timestamp, scan method).
+- **Late Entry Audit**: Groups and tracks chronic student tardiness frequency.
+- **Spreadsheet Exports**: Supports instant CSV file generation and download for daily, monthly, and checkout reports.
+
+### 🔔 Guardian Notifications Bell
+- **Notification Dropdown**: Integrated a persistent Bell dropdown menu inside the top Navbar for parent/guardian roles.
+- **Real-Time Polling**: Tracks student dismissal handover verification changes in the background.
+- **Status Updates**: Alerts the parent on approval, flagged safety audits, or rejection.
 
 ---
 
