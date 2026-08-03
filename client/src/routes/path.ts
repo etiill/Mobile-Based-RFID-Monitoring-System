@@ -23,14 +23,12 @@ export const PATHS = {
       RFID_SCAN: `${APP_ROOT}/rfid_scan`,
       MY_STUDENTS: `${APP_ROOT}/my_students`,
       ATTENDANCE: `${APP_ROOT}/attendance`,
-      GUARDIAN_VERIFICATION: `${APP_ROOT}/guardian_verification`,
       REPORTS: `${APP_ROOT}/reports`,
     },
 
     // Guardian Routes
     GUARDIAN: {
       DASHBOARD: `${APP_ROOT}/dashboard`,
-      PICKUP: `${APP_ROOT}/pickup`,
     }
   },
 

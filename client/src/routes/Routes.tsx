@@ -12,8 +12,6 @@ import RfidScan from "@/pages/RfidScan/RfidScan"
 import Pupils from "@/pages/Pupils/Pupils"
 import MyStudents from "@/pages/MyStudents/MyStudents"
 import Attendance from "@/pages/Attendance/Attendance"
-import GuardianVerification from "@/pages/GuardianVerification/GuardianVerification"
-import GuardianPickup from "@/pages/GuardianPickup/GuardianPickup"
 import Report from "@/pages/Report/Report"
 
 /**
@@ -119,27 +117,12 @@ export const router = createBrowserRouter([
                 element: <Attendance />,
               },
               {
-                path: "guardian_verification",
-                element: <GuardianVerification />,
-              },
-              {
                 path: "profile",
                 element: <TeacherProfile />,
               },
               {
                 path: "reports",
                 element: <Report />,
-              },
-            ],
-          },
-
-          // Guardian Routes
-          {
-            element: <RoleGuard allowedRoles={["admin", "guardian"]} />,
-            children: [
-              {
-                path: "pickup",
-                element: <GuardianPickup />,
               },
             ],
           },

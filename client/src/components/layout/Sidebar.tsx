@@ -10,8 +10,7 @@ import {
   Bell, 
   ScanLine,
   UserRound,
-  Users,
-  QrCode
+  Users
 } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { PATHS } from "../../routes/path"
@@ -66,11 +65,6 @@ export const TEACHER_ROUTES = [
     icon: ScanLine,
   },
   {
-    label: "Guardian Verification",
-    path: PATHS.APP.TEACHER.GUARDIAN_VERIFICATION,
-    icon: UserRound,
-  },
-  {
     label: "Report",
     path: PATHS.APP.TEACHER.REPORTS,
     icon: UserRound,
@@ -82,11 +76,6 @@ export const GUARDIAN_ROUTES = [
     label: "Dashboard",
     path: PATHS.APP.GUARDIAN.DASHBOARD,
     icon: LayoutGrid,
-  },
-  {
-    label: "Pickup QR / Pass",
-    path: PATHS.APP.GUARDIAN.PICKUP,
-    icon: QrCode,
   },
 ]
 

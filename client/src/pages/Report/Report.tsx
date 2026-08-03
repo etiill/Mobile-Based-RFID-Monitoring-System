@@ -58,25 +58,11 @@ interface AttendanceRecord {
   sectionId: string | number
 }
 
-interface PickupLogRecord {
-  id: string | number
-  studentName: string
-  studentId: string | number
-  classLabel: string
-  guardianName: string
-  relation: string
-  verifiedBy: string
-  checkoutTime: string
-  status: string
-  method: string
-}
-
 export function Report() {
   const [students, setStudents] = useState<Student[]>([])
   const [sections, setSections] = useState<Section[]>([])
-  const [pickupLogs, setPickupLogs] = useState<PickupLogRecord[]>([])
   
-  const [activeReport, setActiveReport] = useState<"dashboard" | "daily" | "weekly" | "monthly" | "pickup" | "late">("dashboard")
+  const [activeReport, setActiveReport] = useState<"dashboard" | "daily" | "weekly" | "monthly" | "late">("dashboard")
   const [isLoading, setIsLoading] = useState(true)
 
   // Filters State
@@ -125,29 +111,7 @@ export function Report() {
     fetchData()
   }, [])
 
-  // Fetch Pickup handover log logs from backend
-  const fetchPickupLogs = async () => {
-    setIsLoading(true)
-    try {
-      const logs = await ApiHandler.get<PickupLogRecord[]>("/v1/reports/pickups")
-      setPickupLogs(logs)
-    } catch (error) {
-      console.error("Failed to load checkout logs:", error)
-      toast.add({
-        title: "Error Fetching Pickups",
-        description: "Could not load pickup handovers list from server.",
-        type: "error",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Toggling Reports triggers log fetching if it is Pickup Logs
   useEffect(() => {
-    if (activeReport === "pickup") {
-      fetchPickupLogs()
-    }
     // Reset query filters on screen navigation
     setSearchQuery("")
     setSelectedStatusFilter("All")
@@ -354,21 +318,6 @@ export function Report() {
     })
   }, [attendanceLogs, students, selectedSectionId, searchQuery, role, teacherId])
 
-  // --- Pickup Logs Filter ---
-  const filteredPickupLogs = useMemo(() => {
-    return pickupLogs.filter(log => {
-      const matchesSearch = 
-        log.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.guardianName.toLowerCase().includes(searchQuery.toLowerCase())
-      
-      const matchesSection = selectedSectionId === "" || log.classLabel.includes(String(selectedSectionId))
-      
-      // Basic date match if needed
-      const matchesDate = !selectedDate || log.checkoutTime.startsWith(selectedDate) || true
-      
-      return matchesSearch && matchesSection && matchesDate
-    })
-  }, [pickupLogs, searchQuery, selectedSectionId, selectedDate])
 
   // --- Late Students Chronic Infractions ---
   const lateStudentsSummary = useMemo(() => {
@@ -516,34 +465,7 @@ export function Report() {
               </div>
             </div>
 
-            {/* Card 4: Pickup Logs Report */}
-            <div 
-              onClick={() => setActiveReport("pickup")}
-              className="bg-card border border-border hover:border-primary/40 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-56 group relative"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="p-3 bg-purple-50 dark:bg-card border border-purple-100 rounded-xl">
-                    <Users className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 dark:bg-purple-500/10">
-                    High Security
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-neutral group-hover:text-primary mt-4 transition-colors">
-                  Pickup Logs Report
-                </h3>
-                <p className="text-muted-foreground text-[11px] mt-2 font-medium leading-relaxed">
-                  Secure audit trails of guardian verification and student checkout handovers.
-                </p>
-              </div>
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-[9px] font-bold text-muted-foreground tracking-wider uppercase">
-                  TYPE: SECURITY AUDIT
-                </span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
+
 
             {/* Card 5: Late Students Report */}
             <div 
@@ -951,115 +873,7 @@ export function Report() {
         </div>
       )}
 
-      {/* ----------------- PICKUP LOGS VIEW ----------------- */}
-      {activeReport === "pickup" && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setActiveReport("dashboard")}
-                className="p-2 border border-border bg-card rounded-xl hover:bg-muted text-muted-foreground hover:text-neutral cursor-pointer transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-primary dark:text-foreground">Dismissal Handover Report</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Secure audit logs of verified student checkouts.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const headers = ["Pupil", "Classroom", "Authorized Guardian", "Relationship", "Checkout Time", "Method", "Verified By"]
-                const rows = filteredPickupLogs.map(r => [
-                  r.studentName, r.classLabel, r.guardianName, r.relation, r.checkoutTime, r.method, r.verifiedBy
-                ])
-                handleCSVExport(`dismissal_handover_report.csv`, headers, rows)
-              }}
-              className="bg-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xs border-none self-start"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export CSV</span>
-            </button>
-          </div>
 
-          {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card border border-border rounded-2xl p-4 shadow-sm">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search pupil or guardian..."
-                className="w-full rounded-xl border border-border bg-tertiary pl-10 pr-4 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <select
-                value={selectedSectionId}
-                onChange={(e) => setSelectedSectionId(e.target.value)}
-                className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-neutral outline-none cursor-pointer"
-              >
-                <option value="">All Classrooms</option>
-                {filteredSections.map(sec => (
-                  <option key={sec.id} value={sec.id}>
-                    {sec.year_level} - {sec.section_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Pickup Logs Table */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs font-sans">
-                <thead>
-                  <tr className="border-b border-border bg-tertiary/30 text-muted-foreground font-bold uppercase tracking-wider">
-                    <th className="px-6 py-4 font-bold">Pupil</th>
-                    <th className="px-6 py-4 font-bold">Classroom</th>
-                    <th className="px-6 py-4 font-bold">Authorized Guardian</th>
-                    <th className="px-6 py-4 font-bold">Relationship</th>
-                    <th className="px-6 py-4 font-bold">Checkout Time</th>
-                    <th className="px-6 py-4 font-bold">Method</th>
-                    <th className="px-6 py-4 font-bold">Verified By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border font-medium text-neutral">
-                  {filteredPickupLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground font-semibold">
-                        No checked-out dismissal handovers logged on server.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredPickupLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-tertiary/10 transition-colors">
-                        <td className="px-6 py-4 font-bold text-primary">{log.studentName}</td>
-                        <td className="px-6 py-4 font-semibold">{log.classLabel}</td>
-                        <td className="px-6 py-4 font-bold text-neutral">{log.guardianName}</td>
-                        <td className="px-6 py-4 font-bold text-muted-foreground">{log.relation}</td>
-                        <td className="px-6 py-4 font-semibold text-neutral">{log.checkoutTime}</td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                            log.method === "RFID Scanner" 
-                              ? "bg-blue-50 border-blue-200 text-blue-600" 
-                              : "bg-purple-50 border-purple-200 text-purple-600"
-                          }`}>
-                            {log.method}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-muted-foreground">{log.verifiedBy}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ----------------- LATE STUDENTS VIEW ----------------- */}
       {activeReport === "late" && (
