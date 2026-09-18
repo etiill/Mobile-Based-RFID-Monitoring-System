@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\AttendanceController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -37,5 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Guardian Child Information
     Route::get('/guardian/child', [StudentController::class, 'getGuardianChild']);
+
+    // Attendance Management
+    Route::get('/attendance', [AttendanceController::class, 'index']);
+    Route::post('/attendance/scan', [AttendanceController::class, 'scan']);
+    Route::post('/attendance/override', [AttendanceController::class, 'override']);
 });
 

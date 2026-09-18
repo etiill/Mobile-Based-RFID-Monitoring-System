@@ -159,10 +159,7 @@ export function MyStudents() {
   const handleOpenEditStudent = (student: Student) => {
     setEditingStudent(student)
     setStudentName(student.name)
-    const cleanRfid = student.rfid.startsWith("RFID-") 
-      ? student.rfid.replace("RFID-", "") 
-      : student.rfid
-    setStudentRfid(cleanRfid)
+    setStudentRfid(student.rfid)
     setStudentSectionId(student.section_id || "")
     setIsStudentModalOpen(true)
   }
@@ -196,7 +193,7 @@ export function MyStudents() {
       return
     }
 
-    const formattedRfid = studentRfid.startsWith("RFID-") ? studentRfid : `RFID-${studentRfid}`
+    const formattedRfid = studentRfid.trim()
     const formattedGrade = `Grade: ${selectedSec.year_level}`
 
     const payload = {

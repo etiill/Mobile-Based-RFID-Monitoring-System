@@ -17,7 +17,7 @@ class StudentSeeder extends Seeder
         $section = \App\Models\Section::where('section_name', 'Alpha')->first();
 
         $emma = Student::firstOrCreate(
-            ['rfid' => 'RFID-001234'],
+            ['rfid' => 'E2806A960000501AB7463924'],
             [
                 'name' => 'Emma Johnson',
                 'grade' => 'K-1',
@@ -46,7 +46,7 @@ class StudentSeeder extends Seeder
         );
 
         $liam = Student::firstOrCreate(
-            ['rfid' => 'RFID-001235'],
+            ['rfid' => '001235'],
             [
                 'name' => 'Liam Chen',
                 'grade' => 'K-2',

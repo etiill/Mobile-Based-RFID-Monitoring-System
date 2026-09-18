@@ -129,10 +129,7 @@ export function Pupils() {
   const handleOpenEdit = (student: Student) => {
     setEditingPupil(student)
     setPupilName(student.name)
-    const cleanRfid = student.rfid.startsWith("RFID-") 
-      ? student.rfid.replace("RFID-", "") 
-      : student.rfid
-    setPupilRfid(cleanRfid)
+    setPupilRfid(student.rfid)
     setPupilSectionId(student.section_id || "")
     setIsAddEditModalOpen(true)
   }
@@ -176,7 +173,7 @@ export function Pupils() {
       return
     }
 
-    const formattedRfid = pupilRfid.startsWith("RFID-") ? pupilRfid : `RFID-${pupilRfid}`
+    const formattedRfid = pupilRfid.trim()
     const formattedGrade = `Grade: ${selectedSec.year_level}`
 
     const payload = {
