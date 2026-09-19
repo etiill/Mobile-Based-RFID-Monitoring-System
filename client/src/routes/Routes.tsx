@@ -48,15 +48,23 @@ const LazyLogin = lazyWithDelay(() => import("../pages/auth/Login"))
 const Dashboard = lazyWithDelay(() => import("../pages/Dashboard"))
 const Registration = lazyWithDelay(() => import("../pages/Registration/registration"))
 const TeacherProfile = lazyWithDelay(() => import("../pages/TeacherProfile/TeacherProfile"))
+const LazyCheckoutConfirm = lazyWithDelay(() => import("../pages/CheckoutConfirm/CheckoutConfirm"))
 
 // Suspense-wrapped pages (for guest page)
 const Login = withSuspense(LazyLogin)
+const CheckoutConfirm = withSuspense(LazyCheckoutConfirm)
 
 /**
  * Main application routes configuration using React Router v7 Data API.
  * Grouped cleanly by accessibility level.
  */
 export const router = createBrowserRouter([
+  // Public Guardian Checkout Confirmation Route
+  {
+    path: PATHS.CHECKOUT_CONFIRM,
+    element: <CheckoutConfirm />,
+  },
+
   // Guest Routes (Accessible only to unauthenticated users)
   {
     element: <GuestGuard />,
@@ -97,6 +105,10 @@ export const router = createBrowserRouter([
                 path: "pupils",
                 element: <Pupils />,
               },
+              {
+                path: "rfid_scan",
+                element: <RfidScan />,
+              },
             ],
           },
 
@@ -104,10 +116,6 @@ export const router = createBrowserRouter([
           {
             element: <RoleGuard allowedRoles={["admin", "teacher"]} />,
             children: [
-              {
-                path: "rfid_scan",
-                element: <RfidScan />,
-              },
               {
                 path: "my_students",
                 element: <MyStudents />,

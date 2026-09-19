@@ -134,9 +134,25 @@ export function Attendance() {
     fetchData()
   }, [])
 
-  // Refetch attendance logs when date changes
+  // Refetch attendance logs when date changes or via real-time sync from admin side
   useEffect(() => {
     fetchAttendance()
+    const interval = setInterval(fetchAttendance, 3000)
+
+    const handleCustomScanEvent = () => fetchAttendance()
+    window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
+
+    let bc: BroadcastChannel | null = null
+    try {
+      bc = new BroadcastChannel("rfid_attendance_sync")
+      bc.onmessage = () => fetchAttendance()
+    } catch {}
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("rfid_scan_updated", handleCustomScanEvent)
+      if (bc) bc.close()
+    }
   }, [selectedDate])
 
   // Filter sections assigned to this teacher
@@ -176,15 +192,44 @@ export function Attendance() {
       let timeOut = "--:--"
       let verifiedBy: "RFID System" | "Manual Override" | "N/A" = "N/A"
 
+      const formatToStandardTime = (rawTime?: string | null) => {
+        if (!rawTime || rawTime === "--:--") return "--:--"
+        if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
+          return rawTime
+        }
+        try {
+          const parts = rawTime.split(":")
+          if (parts.length >= 2) {
+            let hours = parseInt(parts[0], 10)
+            const minutes = parseInt(parts[1], 10)
+
+            if (!isNaN(hours) && !isNaN(minutes)) {
+              const ampm = hours >= 12 ? 'PM' : 'AM'
+              hours = hours % 12
+              hours = hours ? hours : 12
+              const strMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`
+              return `${hours}:${strMinutes} ${ampm}`
+            }
+          }
+        } catch {}
+        try {
+          const dateObj = new Date(`2000-01-01T${rawTime}`)
+          if (!isNaN(dateObj.getTime())) {
+            return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+          }
+        } catch {}
+        return rawTime
+      }
+
       if (record) {
         status = record.status as "Present" | "Late" | "Absent"
         verifiedBy = record.verified_by as "RFID System" | "Manual Override"
         
         if (record.time_in) {
-          timeIn = new Date(`2000-01-01T${record.time_in}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timeIn = formatToStandardTime(record.time_in)
         }
         if (record.time_out) {
-          timeOut = new Date(`2000-01-01T${record.time_out}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timeOut = formatToStandardTime(record.time_out)
         }
       }
 

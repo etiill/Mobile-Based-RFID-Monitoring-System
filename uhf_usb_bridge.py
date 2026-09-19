@@ -68,14 +68,19 @@ def send_attendance_to_laravel(epc, rssi=None):
         if response.status_code in [200, 201]:
             data = response.json()
             student_name = data.get("student", {}).get("name", "Unknown Pupil")
-            status = data.get("attendance", {}).get("status", "Present")
-            direction = data.get("direction", DEFAULT_DIRECTION).upper()
-            print(f"  [SUCCESS] -> {student_name} | {direction} | Status: {status}")
             
-            sms_logs = data.get("sms_logs", [])
-            if sms_logs:
-                for s in sms_logs:
-                    print(f"             SMS Sent -> {s.get('guardian_name')}: {s.get('phone')}")
+            if data.get("ignored"):
+                print(f"  [IGNORED SCAN] -> Tag {epc} ({student_name}) is currently active/checked in. Scan ignored until checked out.")
+            else:
+                attendance_obj = data.get("attendance") or {}
+                status = attendance_obj.get("status", "Present")
+                direction = data.get("direction", DEFAULT_DIRECTION).upper()
+                print(f"  [SUCCESS] -> {student_name} | {direction} | Status: {status}")
+                
+                sms_logs = data.get("sms_logs", [])
+                if sms_logs:
+                    for s in sms_logs:
+                        print(f"             SMS Sent -> {s.get('guardian_name')}: {s.get('phone')}")
         elif response.status_code == 404:
             print(f"  [UNREGISTERED] -> Tag {epc} is not assigned to any student in database.")
         else:

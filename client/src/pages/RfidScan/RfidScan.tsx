@@ -1,26 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo } from "react"
-import { 
-  Wifi, 
-  WifiOff, 
-  Settings, 
-  Radio, 
-  Users, 
-  Zap, 
-  Play, 
-  Pause, 
-  ArrowRightLeft, 
-  RefreshCw, 
-  CheckCircle2, 
-  UserCheck, 
+import {
+  Wifi,
+  WifiOff,
+  Settings,
+  Radio,
+  Zap,
+  Play,
+  Pause,
+  ArrowRightLeft,
+  CheckCircle2,
+  UserCheck,
   HelpCircle,
   Smartphone,
   Sliders,
   Usb,
-  Cpu,
   ShieldAlert,
   Terminal,
   Volume2,
-  VolumeX
+  VolumeX,
+  Trash2
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -66,6 +64,10 @@ interface ScanLog {
 }
 
 export function RfidScan() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const userRole = user.role || "admin"
+  const isAdmin = userRole === "admin"
+
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudentId, setSelectedStudentId] = useState<string>("")
   const [direction, setDirection] = useState<'in' | 'out'>('in')
@@ -89,16 +91,42 @@ export function RfidScan() {
   const [manualEpcInput, setManualEpcInput] = useState<string>("")
   const lastScannedTimeRef = useRef<{ [epc: string]: number }>({})
 
+  const getLocalTodayDate = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Simulation Controls State
   const [isTrafficSimulating, setIsTrafficSimulating] = useState<boolean>(false)
-  const [simulationDate, setSimulationDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [simulationDate, setSimulationDate] = useState<string>(getLocalTodayDate())
   const [simulatedAttenuation, setSimulatedAttenuation] = useState<number>(0) // dB
 
   // Radar points animation state
   const [radarPoints, setRadarPoints] = useState<Array<{ id: string; x: number; y: number; r: number; opacity: number; label: string }>>([])
-  
-  // Real-time scan log list
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>([])
+
+  // Real-time scan log list (initialized from localStorage to persist across refreshes)
+  const [scanLogs, setScanLogs] = useState<ScanLog[]>(() => {
+    try {
+      const cached = localStorage.getItem("rfid_gate_logs")
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Persist scanLogs to localStorage whenever updated
+  useEffect(() => {
+    if (scanLogs.length > 0) {
+      try {
+        localStorage.setItem("rfid_gate_logs", JSON.stringify(scanLogs))
+      } catch (e) {
+        console.error("Failed to save gate logs to localStorage", e)
+      }
+    }
+  }, [scanLogs])
 
   // Connection config
   const readerIP = "192.168.1.105"
@@ -116,6 +144,7 @@ export function RfidScan() {
     return "10.5 meters"
   }, [rfPower, simulatedAttenuation])
 
+  // Fetch student database for simulation triggers
   useEffect(() => {
     const loadStudents = async () => {
       try {
@@ -126,11 +155,6 @@ export function RfidScan() {
         }
       } catch (error) {
         console.error("Failed to load students:", error)
-        toast.add({
-          title: "Setup Error",
-          description: "Could not load student database records.",
-          type: "error"
-        })
       } finally {
         setIsLoading(false)
       }
@@ -146,11 +170,161 @@ export function RfidScan() {
     }
   }, [])
 
+  // Helper to convert military 24-hour time to standard 12-hour AM/PM time
+  const formatTimeString = (rawTime?: string | null) => {
+    if (!rawTime || rawTime === "--:--") return "--:--"
+    if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
+      return rawTime
+    }
+    try {
+      const parts = rawTime.split(":")
+      if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10)
+        const minutes = parseInt(parts[1], 10)
+        const seconds = parts[2] ? parseInt(parts[2], 10) : undefined
+
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const ampm = hours >= 12 ? 'PM' : 'AM'
+          hours = hours % 12
+          hours = hours ? hours : 12
+          const strMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`
+
+          if (seconds !== undefined) {
+            const strSeconds = seconds < 10 ? `0${seconds}` : `${seconds}`
+            return `${hours}:${strMinutes}:${strSeconds} ${ampm}`
+          }
+          return `${hours}:${strMinutes} ${ampm}`
+        }
+      }
+    } catch {}
+
+    try {
+      const dateObj = new Date(`2000-01-01T${rawTime}`)
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+      }
+    } catch {}
+
+    return rawTime
+  }
+
+  // Fetch real-time gate attendance logs from backend
+  const fetchRecentScans = async () => {
+    try {
+      const localToday = getLocalTodayDate()
+      const targetDate = simulationDate || localToday
+
+      let data = await ApiHandler.get<any[]>(`/attendance?date=${targetDate}`)
+      if (!Array.isArray(data) || data.length === 0) {
+        data = await ApiHandler.get<any[]>(`/attendance`)
+      }
+      if (Array.isArray(data)) {
+        const dbEvents: ScanLog[] = []
+
+        data.forEach(item => {
+          const studentObj = item.student
+          const studentName = studentObj?.name || item.student_name || "Student"
+          const sectionName = studentObj?.section
+            ? `${studentObj.section.year_level} - ${studentObj.section.section_name}`
+            : "Unassigned"
+          const guardians = studentObj?.guardians || []
+
+          // Check Out Event first (time_out occurs later than time_in, so it is newer)
+          if (item.time_out) {
+            const timeOutStr = formatTimeString(item.time_out)
+            dbEvents.push({
+              id: `db-out-${item.id}`,
+              timestamp: timeOutStr,
+              studentName,
+              rfid: studentObj?.rfid || item.rfid || "N/A",
+              grade: studentObj?.grade || "N/A",
+              sectionName,
+              direction: 'out',
+              rssi: -58 - Math.floor(Math.random() * 8),
+              distance: parseFloat((1.5 + Math.random() * 2).toFixed(1)),
+              status: item.status || "Present",
+              smsLogs: (item.sms_logs && item.sms_logs.length > 0) ? item.sms_logs : guardians.map((g: any) => ({
+                guardian_name: g.name,
+                phone: g.phone,
+                relation: g.relation,
+                message: `FCU Attendance Alert: ${studentName} checked OUT at ${timeOutStr}.`
+              }))
+            })
+          }
+
+          // Check In Event second
+          if (item.time_in) {
+            const timeInStr = formatTimeString(item.time_in)
+            dbEvents.push({
+              id: `db-in-${item.id}`,
+              timestamp: timeInStr,
+              studentName,
+              rfid: studentObj?.rfid || item.rfid || "N/A",
+              grade: studentObj?.grade || "N/A",
+              sectionName,
+              direction: 'in',
+              rssi: -55 - Math.floor(Math.random() * 8),
+              distance: parseFloat((1.2 + Math.random() * 2).toFixed(1)),
+              status: item.status || "Present",
+              smsLogs: (item.sms_logs && item.sms_logs.length > 0) ? item.sms_logs : guardians.map((g: any) => ({
+                guardian_name: g.name,
+                phone: g.phone,
+                relation: g.relation,
+                message: `FCU Attendance Alert: ${studentName} checked IN at ${timeInStr}.`
+              }))
+            })
+          }
+        })
+
+        // Merge DB events into scanLog history without purging previous scan logs
+        setScanLogs(prev => {
+          if (dbEvents.length === 0) return prev
+
+          // Identify DB events that do not already exist in scanLog history
+          const missingDbEvents = dbEvents.filter(d =>
+            !prev.some(p => p.id === d.id || (p.rfid === d.rfid && p.direction === d.direction && p.timestamp === d.timestamp))
+          )
+
+          if (missingDbEvents.length === 0) return prev
+
+          return [...missingDbEvents, ...prev].slice(0, 100)
+        })
+      }
+    } catch (error) {
+      console.error("Failed to fetch real-time gate logs:", error)
+    }
+  }
+
+  useEffect(() => {
+    fetchRecentScans()
+    const interval = setInterval(fetchRecentScans, 3000)
+
+    const handleCustomScanEvent = () => fetchRecentScans()
+    window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
+
+    let bc: BroadcastChannel | null = null
+    try {
+      bc = new BroadcastChannel("rfid_attendance_sync")
+      bc.onmessage = () => fetchRecentScans()
+    } catch {}
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "rfid_gate_logs") fetchRecentScans()
+    }
+    window.addEventListener("storage", handleStorageChange)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("rfid_scan_updated", handleCustomScanEvent)
+      window.removeEventListener("storage", handleStorageChange)
+      if (bc) bc.close()
+    }
+  }, [simulationDate])
+
   // Generate random coordinate point for radar sweep when a scan occurs
   const addRadarPoint = (label: string) => {
     const angle = Math.random() * Math.PI * 2
-    // Distribute points radially inside the scanner
-    const radius = Math.random() * 95 + 10 
+    const radius = Math.random() * 95 + 10
     const x = Math.cos(angle) * radius
     const y = Math.sin(angle) * radius
     const newPoint = {
@@ -163,11 +337,10 @@ export function RfidScan() {
     }
     setRadarPoints(prev => [...prev, newPoint])
 
-    // Decay point opacity over time
     const decayInterval = setInterval(() => {
-      setRadarPoints(prev => 
+      setRadarPoints(prev =>
         prev.map(p => p.id === newPoint.id ? { ...p, opacity: p.opacity - 0.05 } : p)
-            .filter(p => p.opacity > 0)
+          .filter(p => p.opacity > 0)
       )
     }, 150)
 
@@ -179,24 +352,21 @@ export function RfidScan() {
   // API Call - Send scan payload to Laravel backend
   const executeScan = async (studentRfid: string, overrideDirection?: 'in' | 'out', customTime?: string) => {
     try {
-      // Calculate signal metrics
       const baseRssi = -50 - (30 - rfPower) * 1.5 - simulatedAttenuation
       const variance = Math.floor(Math.random() * 8) - 4
       const rssi = Math.max(-95, Math.min(-40, baseRssi + variance))
-      
-      const distanceFraction = (rssi + 40) / -55 // 0 to 1 scaling
+
+      const distanceFraction = (rssi + 40) / -55
       const distance = parseFloat(Math.max(0.5, Math.min(11, distanceFraction * 10)).toFixed(1))
 
       const scanDirection = overrideDirection || direction
 
-      // Format time
       let formattedTime = customTime
       if (!formattedTime) {
         const now = new Date()
-        formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
       }
 
-      // API request to record attendance in DB
       const response = await ApiHandler.post<{
         message: string
         student: Student
@@ -206,8 +376,9 @@ export function RfidScan() {
           time_out: string | null
           status: string
           verified_by: string
-        }
+        } | null
         direction: 'in' | 'out'
+        ignored?: boolean
         sms_logs: Array<{
           guardian_name: string
           phone: string
@@ -222,29 +393,49 @@ export function RfidScan() {
       })
 
       const scannedStudent = response.student
-      const sectionName = scannedStudent.section 
+
+      // Check if backend database ignored the scan because transaction is currently active
+      if (response.ignored) {
+        toast.add({
+          title: `Scan Ignored: ${scannedStudent ? scannedStudent.name : studentRfid}`,
+          description: response.message || `Barcode ${studentRfid} is currently active/checked in. Mark as checked out before scanning again.`,
+          type: "warning"
+        })
+        return false
+      }
+
+      const sectionName = scannedStudent?.section
         ? `${scannedStudent.section.year_level} - ${scannedStudent.section.section_name}`
         : "Unassigned"
 
       const newLog: ScanLog = {
         id: Math.random().toString(),
         timestamp: formattedTime,
-        studentName: scannedStudent.name,
+        studentName: scannedStudent ? scannedStudent.name : "Unknown",
         rfid: studentRfid,
-        grade: scannedStudent.grade,
+        grade: scannedStudent ? scannedStudent.grade : "N/A",
         sectionName,
         direction: response.direction,
         rssi,
         distance,
-        status: response.attendance.status,
+        status: response.attendance ? response.attendance.status : "Present",
         smsLogs: response.sms_logs
       }
 
-      setScanLogs(prev => [newLog, ...prev].slice(0, 30))
-      addRadarPoint(scannedStudent.name)
+      setScanLogs(prev => [newLog, ...prev].slice(0, 100))
+      if (scannedStudent) {
+        addRadarPoint(scannedStudent.name)
+      }
+      window.dispatchEvent(new Event("rfid_scan_updated"))
+
+      try {
+        const bc = new BroadcastChannel("rfid_attendance_sync")
+        bc.postMessage({ type: "rfid_scanned", timestamp: Date.now() })
+        bc.close()
+      } catch {}
 
       toast.add({
-        title: `UHF Scanned: ${scannedStudent.name}`,
+        title: `UHF Scanned: ${scannedStudent ? scannedStudent.name : studentRfid}`,
         description: `Student ${response.direction === 'in' ? 'checked IN' : 'checked OUT'} successfully. RSSI: ${rssi} dBm.`,
         type: "success"
       })
@@ -280,7 +471,7 @@ export function RfidScan() {
       osc.start(ctx.currentTime)
       osc.stop(ctx.currentTime + 0.15)
     } catch {
-      // Audio context might be restricted before user gesture
+      // Audio context restricted
     }
   }
 
@@ -289,11 +480,10 @@ export function RfidScan() {
     const cleanedEpc = epc.trim().toUpperCase()
     if (!cleanedEpc || cleanedEpc.length < 4) return
 
-    // Debounce: 5 seconds per tag to avoid repeated scans while student stays in UHF antenna beam
     const now = Date.now()
     const lastScan = lastScannedTimeRef.current[cleanedEpc] || 0
     if (now - lastScan < 5000) {
-      console.log(`[UHF Cooldown] Tag ${cleanedEpc} in cooldown (${Math.ceil((5000 - (now - lastScan)) / 1000)}s left)`)
+      console.log(`[UHF Cooldown] Tag ${cleanedEpc} in cooldown`)
       return
     }
     lastScannedTimeRef.current[cleanedEpc] = now
@@ -301,16 +491,15 @@ export function RfidScan() {
     setPhysicalScanCount(prev => prev + 1)
     playBeep()
 
-    console.log(`[Physical UHF Reader] Detected EPC: ${cleanedEpc}, RSSI: ${rssiVal ?? 'N/A'}`)
     await executeScan(cleanedEpc)
   }
 
-  // Connect Physical USB UHF Reader using WebHID API (Chrome / Edge)
+  // Connect Physical USB UHF Reader using WebHID API
   const connectPhysicalReader = async () => {
     if (!("hid" in navigator)) {
       toast.add({
         title: "Browser Not Supported",
-        description: "Direct WebHID USB connection is supported in Google Chrome and Microsoft Edge. Please use Chrome or Edge.",
+        description: "Direct WebHID USB connection is supported in Google Chrome and Microsoft Edge.",
         type: "error"
       })
       return
@@ -318,7 +507,6 @@ export function RfidScan() {
 
     try {
       setIsConnectingHid(true)
-      // Request device with filter for Microchip VID: 0x04D8 / PID: 0x033F (QW0A) with fallback
       const devices = await (navigator as any).hid.requestDevice({
         filters: [
           { vendorId: 0x04d8, productId: 0x033f },
@@ -343,51 +531,45 @@ export function RfidScan() {
 
       toast.add({
         title: "Physical UHF Reader Connected!",
-        description: `Linked to ${devName} (VID:04D8 PID:033F). Ready to scan tags!`,
+        description: `Linked to ${devName} (VID:04D8 PID:033F).`,
         type: "success"
       })
 
-      // Try sending Start Inventory command: 7C FF FF 81 32 00 D3
       try {
         const startCmd = new Uint8Array([0x7C, 0xFF, 0xFF, 0x81, 0x32, 0x00, 0xD3])
         await device.sendReport(0x00, startCmd)
       } catch (cmdErr) {
-        console.log("Start inventory command note:", cmdErr)
+        console.log("Start inventory note:", cmdErr)
       }
 
-      // Listen for incoming input reports
       device.oninputreport = (event: any) => {
         const { data } = event
         const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
         const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('')
         setLastRawPacket(hex)
 
-        // Pattern 1: Exact RCP AUTO packet
-        // CC FF 20 05 10 00 30 00 [24-hex EPC] [RSSI] [Checksum]
         const rcpMatch = hex.match(/CCFF[0-9A-F]{4}[0-9A-F]{4}3000([0-9A-F]{24})/i)
         if (rcpMatch && rcpMatch[1]) {
           handlePhysicalTagDetected(rcpMatch[1])
           return
         }
 
-        // Pattern 2: Standard Gen2 EPC (usually begins with E2)
         const epcMatch = hex.match(/E2[0-9A-F]{22}/i)
         if (epcMatch) {
           handlePhysicalTagDetected(epcMatch[0])
           return
         }
 
-        // Pattern 3: Any valid 24-character hexadecimal sequence
         const anyHex24 = hex.match(/[0-9A-F]{24}/i)
         if (anyHex24 && anyHex24[0] !== '000000000000000000000000' && anyHex24[0] !== 'FFFFFFFFFFFFFFFFFFFFFFFF') {
           handlePhysicalTagDetected(anyHex24[0])
         }
       }
     } catch (err: any) {
-      console.error("WebHID connection failed:", err)
+      console.error("WebHID failed:", err)
       toast.add({
         title: "USB Connection Failed",
-        description: err.message || "Failed to open USB device. Ensure 'RFID READER DEMO' is disconnected first!",
+        description: err.message || "Failed to open USB device.",
         type: "error"
       })
     } finally {
@@ -413,7 +595,6 @@ export function RfidScan() {
     }
   }
 
-  // Auto handle USB unplug event
   useEffect(() => {
     const handleHidDisconnect = (event: any) => {
       if (event.device === hidDevice) {
@@ -436,12 +617,11 @@ export function RfidScan() {
         (navigator as any).hid.removeEventListener("disconnect", handleHidDisconnect)
       }
       if (hidDevice && hidDevice.opened) {
-        hidDevice.close().catch(() => {})
+        hidDevice.close().catch(() => { })
       }
     }
   }, [hidDevice])
 
-  // Keyboard Wedge Mode Listener (if reader configured in Keyboard Wedge mode)
   useEffect(() => {
     let keyBuffer = ""
     let lastKeyTime = 0
@@ -449,9 +629,9 @@ export function RfidScan() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (
-        target.tagName === 'INPUT' || 
-        target.tagName === 'TEXTAREA' || 
-        target.tagName === 'SELECT' || 
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
         target.isContentEditable
       ) {
         return
@@ -466,7 +646,6 @@ export function RfidScan() {
       if (e.key === 'Enter') {
         const cleaned = keyBuffer.trim().toUpperCase()
         if (cleaned.length >= 8) {
-          console.log("[Keyboard Wedge Tag Input]:", cleaned)
           handlePhysicalTagDetected(cleaned)
         }
         keyBuffer = ""
@@ -479,7 +658,6 @@ export function RfidScan() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Trigger scan for the selected dropdown student
   const handleSingleScan = async () => {
     if (readerStatus === 'Disconnected') {
       toast.add({
@@ -492,11 +670,9 @@ export function RfidScan() {
 
     const student = students.find(s => s.id.toString() === selectedStudentId)
     if (!student) return
-    
     await executeScan(student.rfid)
   }
 
-  // Simulate multiple students passing through the gate at once (UHF Range tag identification)
   const handleBatchScan = async () => {
     if (readerStatus === 'Disconnected') {
       toast.add({
@@ -516,29 +692,25 @@ export function RfidScan() {
       return
     }
 
-    // Select 3-4 random students
     const shuffled = [...students].sort(() => 0.5 - Math.random())
-    const batchSize = Math.min(shuffled.length, Math.floor(Math.random() * 3) + 3) // 3 to 5 students
+    const batchSize = Math.min(shuffled.length, Math.floor(Math.random() * 3) + 3)
     const batchStudents = shuffled.slice(0, batchSize)
 
     toast.add({
       title: "UHF Batch Read Initialized",
-      description: `Simulating group walkthrough. Range field scanning ${batchSize} tags...`,
+      description: `Simulating group walkthrough. Field scanning ${batchSize} tags...`,
       type: "info"
     })
 
-    // Execute scans sequentially with very small simulated hardware delays (e.g. 80ms)
     for (let i = 0; i < batchStudents.length; i++) {
       const student = batchStudents[i]
       setTimeout(async () => {
-        // Toggle direction randomly or keep current global direction
         const randDir = Math.random() > 0.5 ? 'in' : 'out'
         await executeScan(student.rfid, randDir)
       }, i * 120)
     }
   }
 
-  // Toggle continuous random foot traffic scan simulation
   const handleToggleTrafficSimulation = () => {
     if (isTrafficSimulating) {
       if (simIntervalRef.current) {
@@ -568,14 +740,12 @@ export function RfidScan() {
         type: "success"
       })
 
-      // Scan a random student every 6 seconds
       simIntervalRef.current = setInterval(async () => {
         if (students.length === 0) return
         const randomStudent = students[Math.floor(Math.random() * students.length)]
-        const randDir = Math.random() > 0.35 ? 'in' : 'out' // 65% check-ins, 35% check-outs
-        
-        // Random time simulation around class schedule
-        const hour = Math.floor(Math.random() * 2) + 7 // 7 AM or 8 AM
+        const randDir = Math.random() > 0.35 ? 'in' : 'out'
+
+        const hour = Math.floor(Math.random() * 2) + 7
         const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0')
         const second = String(Math.floor(Math.random() * 60)).padStart(2, '0')
         const ampm = hour >= 12 ? 'PM' : 'AM'
@@ -612,15 +782,50 @@ export function RfidScan() {
     }
   }
 
+  // Clear Gate Logs Handler
+  const handleClearGateLogs = async () => {
+    if (!confirm("Are you sure you want to clear all active gate scan logs?")) return
+
+    try {
+      localStorage.removeItem("rfid_gate_logs")
+      setScanLogs([])
+
+      await ApiHandler.post("/attendance/clear-gate-logs", { delete_attendance: false })
+
+      window.dispatchEvent(new Event("rfid_scan_updated"))
+
+      try {
+        const bc = new BroadcastChannel("rfid_attendance_sync")
+        bc.postMessage({ type: "rfid_logs_cleared", timestamp: Date.now() })
+        bc.close()
+      } catch {}
+
+      toast.add({
+        title: "Gate Logs Cleared",
+        description: "All gate scan activity logs have been cleared successfully.",
+        type: "success"
+      })
+    } catch (error: any) {
+      console.error("Failed to clear gate logs:", error)
+      toast.add({
+        title: "Clear Logs Failed",
+        description: error.message || "Failed to clear gate logs from server.",
+        type: "error"
+      })
+    }
+  }
+
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
-      
+
       {/* Top Banner Status Bar */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card border border-border rounded-2xl p-6 shadow-sm">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
             <Radio className={`h-6 w-6 animate-pulse ${readerStatus === 'Disconnected' ? 'text-red-500' : 'text-primary'}`} />
-            <h1 className="text-xl font-bold tracking-tight text-primary">UHF Range RFID Gate Monitor</h1>
+            <h1 className="text-xl font-bold tracking-tight text-primary">
+              {isAdmin ? "UHF Range RFID Gate Monitor (Admin Controls)" : "UHF Range RFID Gate Monitor"}
+            </h1>
           </div>
           <p className="text-xs text-muted-foreground font-semibold">
             Real-time active tracking of long-range multi-tag RFID attendance sensors.
@@ -671,11 +876,10 @@ export function RfidScan() {
 
           <button
             onClick={toggleReaderStatus}
-            className={`flex items-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-2.5 transition-all cursor-pointer ${
-              readerStatus === 'Disconnected' 
-                ? 'bg-red-500 hover:bg-red-600' 
+            className={`flex items-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-2.5 transition-all cursor-pointer ${readerStatus === 'Disconnected'
+                ? 'bg-red-500 hover:bg-red-600'
                 : 'bg-emerald-500 hover:bg-emerald-600'
-            }`}
+              }`}
           >
             {readerStatus === 'Disconnected' ? (
               <>
@@ -689,563 +893,660 @@ export function RfidScan() {
               </>
             )}
           </button>
+
+          {/* Clear Gate Logs Button */}
+          {isAdmin && (
+            <button
+              onClick={handleClearGateLogs}
+              className="flex items-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 transition-all cursor-pointer"
+              title="Clear live RFID gate scan activity logs"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Clear Gate Logs</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Main Grid View */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        
-        {/* LEFT COLUMN: Hardware Config & Physical Link Panel */}
-        <div className="lg:col-span-4 space-y-6">
+      {/* ADMIN SIDE: Full Grid View with Hardware Controls, Radar & Simulator */}
+      {isAdmin ? (
+        <div className="grid gap-6 lg:grid-cols-12">
 
-          {/* PHYSICAL HARDWARE USB LINK CARD */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Usb className={`h-4 w-4 ${hidDevice ? 'text-emerald-500 animate-pulse' : 'text-indigo-600'}`} />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Physical USB UHF Reader</h3>
-              </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                hidDevice 
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
-                  : 'bg-indigo-50 text-indigo-600 border-indigo-200'
-              }`}>
-                {hidDevice ? 'WebHID Linked' : 'Ready to Link'}
-              </span>
-            </div>
+          {/* LEFT COLUMN: Hardware Config & Physical Link Panel */}
+          <div className="lg:col-span-4 space-y-6">
 
-            {/* Hardware specifications */}
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
-                <span className="text-muted-foreground font-semibold">Detected Model:</span>
-                <span className="font-bold text-neutral">915MHz Reader (QW0A - V1.32)</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
-                <span className="text-muted-foreground font-semibold">USB Interface:</span>
-                <span className="font-mono font-bold text-primary">VID:04D8 PID:033F</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
-                <span className="text-muted-foreground font-semibold">Physical Scans Captured:</span>
-                <span className="font-bold text-emerald-600">{physicalScanCount} reads</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
-                <span className="text-muted-foreground font-semibold">Last Scanned EPC:</span>
-                <span className="font-mono text-[10px] font-extrabold text-indigo-600 truncate max-w-[180px]">
-                  {lastPhysicalEpc || "None yet"}
+            {/* PHYSICAL HARDWARE USB LINK CARD */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <Usb className={`h-4 w-4 ${hidDevice ? 'text-emerald-500 animate-pulse' : 'text-indigo-600'}`} />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Physical USB UHF Reader</h3>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${hidDevice
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    : 'bg-indigo-50 text-indigo-600 border-indigo-200'
+                  }`}>
+                  {hidDevice ? 'WebHID Linked' : 'Ready to Link'}
                 </span>
               </div>
-            </div>
 
-            {/* Live Raw Hex Packet Stream display */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Terminal className="h-3 w-3 text-indigo-500" />
-                  <span>Last Hardware Hex Packet</span>
-                </span>
-                <span className="font-mono text-[9px] uppercase">RCP AUTO</span>
-              </div>
-              <div className="bg-tertiary/60 border border-border rounded-xl p-2.5 font-mono text-[10px] text-neutral break-all max-h-16 overflow-y-auto select-all">
-                {lastRawPacket || "Awaiting raw RCP packets from USB reader..."}
-              </div>
-            </div>
-
-            {/* Manual Tag Test / Barcode Wedge Input */}
-            <div className="space-y-1.5 pt-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center justify-between">
-                <span>Test Tag EPC / Scanner Input</span>
-                <span className="text-[9px] lowercase font-normal">press enter to scan</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. E2806A960000501AB7463924"
-                  value={manualEpcInput}
-                  onChange={(e) => setManualEpcInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && manualEpcInput.trim()) {
-                      handlePhysicalTagDetected(manualEpcInput.trim())
-                      setManualEpcInput("")
-                    }
-                  }}
-                  className="flex-1 rounded-xl border border-border bg-tertiary px-3 py-2 text-xs font-mono font-semibold text-neutral outline-none focus:border-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (manualEpcInput.trim()) {
-                      handlePhysicalTagDetected(manualEpcInput.trim())
-                      setManualEpcInput("")
-                    }
-                  }}
-                  className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
-                >
-                  Scan
-                </button>
-              </div>
-            </div>
-
-            {/* Crucial Windows Note Banner */}
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl flex items-start gap-2.5 text-[10px] text-amber-800 dark:text-amber-300 font-semibold leading-relaxed">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div>
-                <strong className="block text-amber-900 dark:text-amber-200">Device Exclusivity Warning:</strong>
-                Windows allows only one app to access the USB reader at a time. Please click <strong>DISCONNECT(C)</strong> in your Windows <em>RFID READER DEMO</em> app before clicking <strong>Connect Physical USB Reader</strong>.
-              </div>
-            </div>
-          </div>
-          
-          {/* UHF Antenna Config Card */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Reader Configuration</h3>
-              </div>
-              <Sliders className="h-4 w-4 text-muted-foreground" />
-            </div>
-
-            <div className="space-y-4">
-              {/* Power Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-muted-foreground">RF Output Power</span>
-                  <span className="text-primary">{rfPower} dBm</span>
+              {/* Hardware specifications */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Detected Model:</span>
+                  <span className="font-bold text-neutral">915MHz Reader (QW0A - V1.32)</span>
                 </div>
-                <input 
-                  type="range" 
-                  min="10" 
-                  max="30"
-                  value={rfPower} 
-                  onChange={(e) => setRfPower(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between text-[9px] text-muted-foreground font-semibold">
-                  <span>10 dBm (Low)</span>
-                  <span>30 dBm (Max Range)</span>
+                <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
+                  <span className="text-muted-foreground font-semibold">USB Interface:</span>
+                  <span className="font-mono font-bold text-primary">VID:04D8 PID:033F</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Physical Scans Captured:</span>
+                  <span className="font-bold text-emerald-600">{physicalScanCount} reads</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-border/50 text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Last Scanned EPC:</span>
+                  <span className="font-mono text-[10px] font-extrabold text-indigo-600 truncate max-w-[180px]">
+                    {lastPhysicalEpc || "None yet"}
+                  </span>
                 </div>
               </div>
 
-              {/* Estimated Range Meter */}
-              <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                <span className="text-[10px] font-bold text-muted-foreground">Est. Detection Range</span>
-                <span className="text-xs font-extrabold text-primary">{estimatedRange}</span>
-              </div>
-
-              {/* Freq selection */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-muted-foreground">Frequency Band</label>
-                <select 
-                  value={frequencyBand} 
-                  onChange={(e) => setFrequencyBand(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-bold text-neutral outline-none"
-                >
-                  <option value="US (902-928 MHz)">US FCC (902-928 MHz)</option>
-                  <option value="EU (865-868 MHz)">EU ETSI (865-868 MHz)</option>
-                  <option value="CN (920-925 MHz)">CN MII (920-925 MHz)</option>
-                </select>
-              </div>
-
-              {/* Poll interval selection */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-muted-foreground">Inventory Poll Interval</span>
-                  <span className="text-primary">{tagInventoryInterval} ms</span>
+              {/* Live Raw Hex Packet Stream display */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Terminal className="h-3 w-3 text-indigo-500" />
+                    <span>Last Hardware Hex Packet</span>
+                  </span>
+                  <span className="font-mono text-[9px] uppercase">RCP AUTO</span>
                 </div>
-                <input 
-                  type="range" 
-                  min="100" 
-                  max="1500" 
-                  step="100"
-                  value={tagInventoryInterval} 
-                  onChange={(e) => setTagInventoryInterval(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
-                />
+                <div className="bg-tertiary/60 border border-border rounded-xl p-2.5 font-mono text-[10px] text-neutral break-all max-h-16 overflow-y-auto select-all">
+                  {lastRawPacket || "Awaiting raw RCP packets from USB reader..."}
+                </div>
               </div>
 
-              {/* Anti-collision Toggle */}
-              <div className="flex items-center justify-between py-2 border-t border-border mt-3">
-                <div>
-                  <span className="text-[11px] font-bold text-neutral block">Anti-Collision Mode</span>
-                  <span className="text-[9px] text-muted-foreground font-semibold">Fast multi-tag EPC inventory scan</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={multiTagMode}
-                    onChange={(e) => setMultiTagMode(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              {/* Manual Tag Test / Barcode Wedge Input */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center justify-between">
+                  <span>Test Tag EPC / Scanner Input</span>
+                  <span className="text-[9px] lowercase font-normal">press enter to scan</span>
                 </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Simulator Controls Card */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-border pb-3">
-              <Zap className="h-4 w-4 text-amber-500 animate-bounce" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-primary">RFID Simulator Engine</h3>
-            </div>
-
-            <div className="space-y-4">
-              
-              {/* Date Selection */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-muted-foreground">Simulated Date</label>
-                <input 
-                  type="date"
-                  value={simulationDate}
-                  onChange={(e) => setSimulationDate(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2 text-xs font-semibold text-neutral outline-none"
-                />
-              </div>
-
-              {/* Signal attenuation control */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-muted-foreground">Signal Attenuation</span>
-                  <span className="text-amber-600">{simulatedAttenuation} dB</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="15"
-                  value={simulatedAttenuation} 
-                  onChange={(e) => setSimulatedAttenuation(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-amber-500"
-                />
-                <span className="text-[9px] text-muted-foreground font-semibold block text-right">
-                  Simulates physical obstacles (walls, heavy rain)
-                </span>
-              </div>
-
-              {/* Direction selector buttons */}
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="text-[11px] font-bold text-muted-foreground">Global Simulator Direction</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setDirection('in')}
-                    className={`py-2 text-xs font-bold rounded-xl cursor-pointer border transition-all ${
-                      direction === 'in' 
-                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                        : 'bg-white text-muted-foreground border-border hover:bg-tertiary'
-                    }`}
-                  >
-                    Check In (IN)
-                  </button>
-                  <button
-                    onClick={() => setDirection('out')}
-                    className={`py-2 text-xs font-bold rounded-xl cursor-pointer border transition-all ${
-                      direction === 'out' 
-                        ? 'bg-blue-500 border-blue-500 text-white shadow-sm'
-                        : 'bg-white text-muted-foreground border-border hover:bg-tertiary'
-                    }`}
-                  >
-                    Check Out (OUT)
-                  </button>
-                </div>
-              </div>
-
-              {/* Active Continuous Foot Traffic Simulation */}
-              <div className="pt-2">
-                <button
-                  onClick={handleToggleTrafficSimulation}
-                  className={`w-full flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-3 transition-all cursor-pointer ${
-                    isTrafficSimulating 
-                      ? 'bg-amber-600 hover:bg-amber-700 animate-pulse'
-                      : 'bg-primary hover:bg-primary/95'
-                  }`}
-                >
-                  {isTrafficSimulating ? (
-                    <>
-                      <Pause className="h-4 w-4" />
-                      <span>Stop Auto Foot Traffic</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" />
-                      <span>Start Auto Foot Traffic</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* MIDDLE COLUMN: Radar Antenna field Visualizer & Trigger Scanners */}
-        <div className="lg:col-span-8 space-y-6">
-          
-          <div className="grid gap-6 md:grid-cols-12">
-            
-            {/* RADAR FIELD DISPLAY CARD */}
-            <div className="md:col-span-7 bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[350px]">
-              
-              {/* Animated Radar Scanning Lines */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                {/* Outer Ring */}
-                <div className="w-[280px] h-[280px] rounded-full border border-primary/20 absolute flex items-center justify-center animate-pulse" />
-                {/* Inner Ring */}
-                <div className="w-[180px] h-[180px] rounded-full border border-primary/15 absolute" />
-                {/* Core Ring */}
-                <div className="w-[80px] h-[80px] rounded-full border border-primary/10 absolute" />
-                
-                {/* Crosshairs */}
-                <div className="w-[290px] h-[1px] bg-primary/15 absolute" />
-                <div className="h-[290px] w-[1px] bg-primary/15 absolute" />
-
-                {/* Radar sweep lines */}
-                {readerStatus === 'Scanning' && (
-                  <div className="absolute w-[280px] h-[280px] rounded-full border-none pointer-events-none origin-center animate-[spin_6s_linear_infinite] overflow-hidden">
-                    <div className="w-1/2 h-1/2 bg-gradient-to-tr from-primary/30 to-transparent absolute top-0 right-0 origin-bottom-left -skew-x-[20deg]" />
-                  </div>
-                )}
-              </div>
-
-              {/* Dynamic Animated Scanned Tags on Radar Grid */}
-              <div className="relative w-[300px] h-[300px] flex items-center justify-center">
-                {/* Core Node */}
-                <div className="h-8 w-8 rounded-full bg-primary text-white border-2 border-white flex items-center justify-center shadow-lg z-10 animate-bounce">
-                  <Radio className="h-4 w-4" />
-                </div>
-                
-                {/* Render current scans */}
-                {radarPoints.map((point) => (
-                  <div 
-                    key={point.id} 
-                    className="absolute bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md animate-ping"
-                    style={{
-                      transform: `translate(${point.x}px, ${point.y}px)`,
-                      width: `${point.r * 2}px`,
-                      height: `${point.r * 2}px`,
-                      opacity: point.opacity
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. E2806A960000501AB7463924"
+                    value={manualEpcInput}
+                    onChange={(e) => setManualEpcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualEpcInput.trim()) {
+                        handlePhysicalTagDetected(manualEpcInput.trim())
+                        setManualEpcInput("")
+                      }
                     }}
+                    className="flex-1 rounded-xl border border-border bg-tertiary px-3 py-2 text-xs font-mono font-semibold text-neutral outline-none focus:border-primary"
                   />
-                ))}
-
-                {radarPoints.map((point) => (
-                  <div 
-                    key={`lbl-${point.id}`}
-                    className="absolute text-[8px] font-extrabold bg-card border border-border px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap"
-                    style={{
-                      transform: `translate(${point.x + 8}px, ${point.y - 12}px)`,
-                      opacity: point.opacity,
-                      transition: 'opacity 150ms'
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (manualEpcInput.trim()) {
+                        handlePhysicalTagDetected(manualEpcInput.trim())
+                        setManualEpcInput("")
+                      }
                     }}
+                    className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
                   >
-                    {point.label}
-                  </div>
-                ))}
+                    Scan
+                  </button>
+                </div>
               </div>
 
-              {/* Grid Radar overlay bottom metrics */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                <span className="font-bold">GRID STATUS: ACTIVE</span>
-                <span className="font-bold">TAG COUNT: {radarPoints.length}</span>
+              {/* Windows Device Exclusivity Note */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl flex items-start gap-2.5 text-[10px] text-amber-800 dark:text-amber-300 font-semibold leading-relaxed">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div>
+                  <strong className="block text-amber-900 dark:text-amber-200">Device Exclusivity Warning:</strong>
+                  Windows allows only one app to access the USB reader at a time. Please click <strong>DISCONNECT(C)</strong> in your Windows <em>RFID READER DEMO</em> app before clicking <strong>Connect Physical USB Reader</strong>.
+                </div>
               </div>
             </div>
 
-            {/* QUICK ACTIONS SIMULATOR TRIGGERS CARD */}
-            <div className="md:col-span-5 bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-              
+            {/* UHF Antenna Config Card */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Reader Configuration</h3>
+                </div>
+                <Sliders className="h-4 w-4 text-muted-foreground" />
+              </div>
+
               <div className="space-y-4">
-                <div className="border-b border-border pb-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Simulate Tag Sweep</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                    Manually inject RFID tag reads into the active UHF reader range field.
+                {/* Power Slider */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-muted-foreground">RF Output Power</span>
+                    <span className="text-primary">{rfPower} dBm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="30"
+                    value={rfPower}
+                    onChange={(e) => setRfPower(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-[9px] text-muted-foreground font-semibold">
+                    <span>10 dBm (Low)</span>
+                    <span>30 dBm (Max Range)</span>
+                  </div>
+                </div>
+
+                {/* Estimated Range Meter */}
+                <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                  <span className="text-[10px] font-bold text-muted-foreground">Est. Detection Range</span>
+                  <span className="text-xs font-extrabold text-primary">{estimatedRange}</span>
+                </div>
+
+                {/* Freq selection */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-muted-foreground">Frequency Band</label>
+                  <select
+                    value={frequencyBand}
+                    onChange={(e) => setFrequencyBand(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-bold text-neutral outline-none"
+                  >
+                    <option value="US (902-928 MHz)">US FCC (902-928 MHz)</option>
+                    <option value="EU (865-868 MHz)">EU ETSI (865-868 MHz)</option>
+                    <option value="CN (920-925 MHz)">CN MII (920-925 MHz)</option>
+                  </select>
+                </div>
+
+                {/* Poll interval selection */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-muted-foreground">Inventory Poll Interval</span>
+                    <span className="text-primary">{tagInventoryInterval} ms</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="100"
+                    max="1500"
+                    step="100"
+                    value={tagInventoryInterval}
+                    onChange={(e) => setTagInventoryInterval(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+
+                {/* Anti-collision Toggle */}
+                <div className="flex items-center justify-between py-2 border-t border-border mt-3">
+                  <div>
+                    <span className="text-[11px] font-bold text-neutral block">Anti-Collision Mode</span>
+                    <span className="text-[9px] text-muted-foreground font-semibold">Fast multi-tag EPC inventory scan</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={multiTagMode}
+                      onChange={(e) => setMultiTagMode(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Simulator Controls Card */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
+              <div className="flex items-center gap-2 border-b border-border pb-3">
+                <Zap className="h-4 w-4 text-amber-500 animate-bounce" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-primary">RFID Simulator Engine</h3>
+              </div>
+
+              <div className="space-y-4">
+
+                {/* Date Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-muted-foreground">Simulated Date</label>
+                  <input
+                    type="date"
+                    value={simulationDate}
+                    onChange={(e) => setSimulationDate(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2 text-xs font-semibold text-neutral outline-none"
+                  />
+                </div>
+
+                {/* Signal attenuation control */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-muted-foreground">Signal Attenuation</span>
+                    <span className="text-amber-600">{simulatedAttenuation} dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="15"
+                    value={simulatedAttenuation}
+                    onChange={(e) => setSimulatedAttenuation(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-tertiary rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <span className="text-[9px] text-muted-foreground font-semibold block text-right">
+                    Simulates physical obstacles (walls, heavy rain)
+                  </span>
+                </div>
+
+                {/* Direction Mode Indicator */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <label className="text-[11px] font-bold text-muted-foreground">RFID Reader Operation Mode</label>
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                      <UserCheck className="h-4 w-4 text-emerald-600" />
+                      Student Arrival Check-In Only
+                    </span>
+                    <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-semibold">
+                    * RFID Readers exclusively record student arrivals. Student checkouts are completed via Guardian QR Code scan on the Teacher Dashboard.
                   </p>
                 </div>
 
-                {/* Dropdown student */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Select Pupil</label>
-                  {isLoading ? (
-                    <div className="h-9 w-full bg-tertiary animate-pulse rounded-xl" />
-                  ) : (
-                    <select
-                      value={selectedStudentId}
-                      onChange={(e) => setSelectedStudentId(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold text-neutral outline-none cursor-pointer"
-                    >
-                      {students.map((student) => (
-                        <option key={student.id} value={student.id}>
-                          {student.name} ({student.rfid})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className="space-y-2 pt-2">
-                  {/* Single scan triggers */}
+                {/* Active Continuous Foot Traffic Simulation */}
+                <div className="pt-2">
                   <button
-                    onClick={handleSingleScan}
-                    disabled={isLoading || students.length === 0 || readerStatus === 'Disconnected'}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 active:scale-[0.99] border-none py-3 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleToggleTrafficSimulation}
+                    className={`w-full flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-3 transition-all cursor-pointer ${isTrafficSimulating
+                        ? 'bg-amber-600 hover:bg-amber-700 animate-pulse'
+                        : 'bg-primary hover:bg-primary/95'
+                      }`}
                   >
-                    <UserCheck className="h-4 w-4" />
-                    <span>Pass Gate (Detect Tag)</span>
-                  </button>
-
-                  <div className="flex items-center gap-2 my-2.5 text-muted-foreground text-[10px] font-bold justify-center">
-                    <span className="h-[1px] bg-border w-1/4"></span>
-                    <span>OR MULTI-TAG SCAN</span>
-                    <span className="h-[1px] bg-border w-1/4"></span>
-                  </div>
-
-                  {/* Multi student walkthrough */}
-                  <button
-                    onClick={handleBatchScan}
-                    disabled={isLoading || students.length === 0 || readerStatus === 'Disconnected'}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-neutral text-xs font-bold text-white shadow-sm hover:bg-neutral/90 active:scale-[0.99] border-none py-3 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ArrowRightLeft className="h-4 w-4 animate-pulse" />
-                    <span>Group Walkthrough Scan</span>
+                    {isTrafficSimulating ? (
+                      <>
+                        <Pause className="h-4 w-4" />
+                        <span>Stop Auto Foot Traffic</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        <span>Start Auto Foot Traffic</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
 
-              {/* Warning note */}
-              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
-                <HelpCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
-                <span>
-                  Passing tags automatically marks check-ins or check-outs based on the current database time and schedules.
-                </span>
               </div>
-
             </div>
 
           </div>
 
-          {/* LIVE SCAN LOG FEED */}
-          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            
-            <div className="flex items-center justify-between bg-tertiary/20 px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Radio className="h-4 w-4 text-emerald-500" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Live RFID Gate Log</h3>
+          {/* MIDDLE COLUMN: Radar Antenna field Visualizer & Trigger Scanners */}
+          <div className="lg:col-span-8 space-y-6">
+
+            <div className="grid gap-6 md:grid-cols-12">
+
+              {/* RADAR FIELD DISPLAY CARD WITH GRID STATUS */}
+              <div className="md:col-span-7 bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[350px]">
+
+                {/* Animated Radar Scanning Lines */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-[280px] h-[280px] rounded-full border border-primary/20 absolute flex items-center justify-center animate-pulse" />
+                  <div className="w-[180px] h-[180px] rounded-full border border-primary/15 absolute" />
+                  <div className="w-[80px] h-[80px] rounded-full border border-primary/10 absolute" />
+
+                  <div className="w-[290px] h-[1px] bg-primary/15 absolute" />
+                  <div className="h-[290px] w-[1px] bg-primary/15 absolute" />
+
+                  {readerStatus === 'Scanning' && (
+                    <div className="absolute w-[280px] h-[280px] rounded-full border-none pointer-events-none origin-center animate-[spin_6s_linear_infinite] overflow-hidden">
+                      <div className="w-1/2 h-1/2 bg-gradient-to-tr from-primary/30 to-transparent absolute top-0 right-0 origin-bottom-left -skew-x-[20deg]" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Dynamic Animated Scanned Tags on Radar Grid */}
+                <div className="relative w-[300px] h-[300px] flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-primary text-white border-2 border-white flex items-center justify-center shadow-lg z-10 animate-bounce">
+                    <Radio className="h-4 w-4" />
+                  </div>
+
+                  {radarPoints.map((point) => (
+                    <div
+                      key={point.id}
+                      className="absolute bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md animate-ping"
+                      style={{
+                        transform: `translate(${point.x}px, ${point.y}px)`,
+                        width: `${point.r * 2}px`,
+                        height: `${point.r * 2}px`,
+                        opacity: point.opacity
+                      }}
+                    />
+                  ))}
+
+                  {radarPoints.map((point) => (
+                    <div
+                      key={`lbl-${point.id}`}
+                      className="absolute text-[8px] font-extrabold bg-card border border-border px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap"
+                      style={{
+                        transform: `translate(${point.x + 8}px, ${point.y - 12}px)`,
+                        opacity: point.opacity,
+                        transition: 'opacity 150ms'
+                      }}
+                    >
+                      {point.label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grid Radar overlay bottom metrics */}
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                  <span className="font-bold">GRID STATUS: ACTIVE</span>
+                  <span className="font-bold">TAG COUNT: {radarPoints.length}</span>
+                </div>
               </div>
-              <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2.5 py-0.5 font-bold uppercase tracking-wider">
-                Real-Time
-              </span>
+
+              {/* QUICK ACTIONS SIMULATOR TRIGGERS CARD */}
+              <div className="md:col-span-5 bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+
+                <div className="space-y-4">
+                  <div className="border-b border-border pb-2.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Simulate Tag Sweep</h3>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
+                      Manually inject RFID tag reads into the active UHF reader range field.
+                    </p>
+                  </div>
+
+                  {/* Dropdown student */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Select Pupil</label>
+                    {isLoading ? (
+                      <div className="h-9 w-full bg-tertiary animate-pulse rounded-xl" />
+                    ) : (
+                      <select
+                        value={selectedStudentId}
+                        onChange={(e) => setSelectedStudentId(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold text-neutral outline-none cursor-pointer"
+                      >
+                        {students.map((student) => (
+                          <option key={student.id} value={student.id}>
+                            {student.name} ({student.rfid})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    {/* Single scan triggers */}
+                    <button
+                      onClick={handleSingleScan}
+                      disabled={isLoading || students.length === 0 || readerStatus === 'Disconnected'}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 active:scale-[0.99] border-none py-3 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <UserCheck className="h-4 w-4" />
+                      <span>Pass Gate (Detect Tag)</span>
+                    </button>
+
+                    <div className="flex items-center gap-2 my-2.5 text-muted-foreground text-[10px] font-bold justify-center">
+                      <span className="h-[1px] bg-border w-1/4"></span>
+                      <span>OR MULTI-TAG SCAN</span>
+                      <span className="h-[1px] bg-border w-1/4"></span>
+                    </div>
+
+                    {/* Multi student walkthrough */}
+                    <button
+                      onClick={handleBatchScan}
+                      disabled={isLoading || students.length === 0 || readerStatus === 'Disconnected'}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-neutral text-xs font-bold text-white shadow-sm hover:bg-neutral/90 active:scale-[0.99] border-none py-3 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ArrowRightLeft className="h-4 w-4 animate-pulse" />
+                      <span>Group Walkthrough Scan</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Warning note */}
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
+                  <HelpCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+                  <span>
+                    Passing tags automatically marks check-ins or check-outs based on the current database time and schedules.
+                  </span>
+                </div>
+
+              </div>
+
             </div>
 
-            <div className="overflow-x-auto max-h-[350px]">
-              <table className="w-full border-collapse text-left text-xs font-sans">
-                <thead>
-                  <tr className="border-b border-border bg-tertiary/10 text-muted-foreground font-bold select-none uppercase tracking-wider">
-                    <th className="px-5 py-3 font-bold text-[10px]">Time</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">Student Name</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">RFID Card</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">Metrics</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">Direction</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">Status</th>
-                    <th className="px-5 py-3 font-bold text-[10px]">SMS Gateways</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border font-semibold text-neutral">
-                  {scanLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground font-bold">
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <Wifi className="h-7 w-7 text-muted-foreground/35 animate-pulse" />
-                          <span>No tags currently detected in the antenna field range.</span>
-                        </div>
-                      </td>
+            {/* LIVE SCAN LOG FEED */}
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+
+              <div className="flex items-center justify-between bg-tertiary/20 px-5 py-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Radio className="h-4 w-4 text-emerald-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Live RFID Gate Log</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleClearGateLogs}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-all cursor-pointer"
+                    title="Clear live gate scan logs"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Clear Logs</span>
+                  </button>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2.5 py-0.5 font-bold uppercase tracking-wider">
+                    Real-Time
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-[350px]">
+                <table className="w-full border-collapse text-left text-xs font-sans">
+                  <thead>
+                    <tr className="border-b border-border bg-tertiary/10 text-muted-foreground font-bold select-none uppercase tracking-wider">
+                      <th className="px-5 py-3 font-bold text-[10px]">Time</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">Student Name</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">RFID Card</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">Metrics</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">Direction</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">Status</th>
+                      <th className="px-5 py-3 font-bold text-[10px]">SMS Gateways</th>
                     </tr>
-                  ) : (
-                    scanLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-tertiary/10 transition-colors animate-fade-in">
-                        {/* Time */}
-                        <td className="px-5 py-3.5 whitespace-nowrap text-[11px] font-mono text-muted-foreground">
-                          {log.timestamp}
-                        </td>
-
-                        {/* Name */}
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary select-none font-bold text-[10px] shrink-0">
-                              {log.studentName.charAt(0)}
-                            </div>
-                            <div>
-                              <span className="font-bold text-primary block text-[11px]">{log.studentName}</span>
-                              <span className="text-[9px] text-muted-foreground block font-semibold">{log.sectionName}</span>
-                            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border font-semibold text-neutral">
+                    {scanLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground font-bold">
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Wifi className="h-7 w-7 text-muted-foreground/35 animate-pulse" />
+                            <span>No tags currently detected in the antenna field range.</span>
                           </div>
                         </td>
-
-                        {/* RFID */}
-                        <td className="px-5 py-3.5 whitespace-nowrap text-[11px] text-muted-foreground font-mono">
-                          {log.rfid}
-                        </td>
-
-                        {/* Metrics */}
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex flex-col text-[9px] font-semibold text-neutral">
-                            <span>Dist: <strong className="text-primary">{log.distance}m</strong></span>
-                            <span>RSSI: <strong className="text-primary">{log.rssi} dBm</strong></span>
-                          </div>
-                        </td>
-
-                        {/* Direction */}
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          {log.direction === 'in' ? (
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
-                              Check IN
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
-                              Check OUT
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          {log.status === 'Present' && (
-                            <span className="text-[9px] font-bold text-emerald-600">On Time</span>
-                          )}
-                          {log.status === 'Late' && (
-                            <span className="text-[9px] font-bold text-amber-600">Late In</span>
-                          )}
-                          {log.status === 'Absent' && (
-                            <span className="text-[9px] font-bold text-red-600">Absent</span>
-                          )}
-                        </td>
-
-                        {/* SMS Dispatched Log logs */}
-                        <td className="px-5 py-3.5">
-                          <div className="space-y-1 max-w-[180px]">
-                            {log.smsLogs.length === 0 ? (
-                              <span className="text-[9px] text-muted-foreground font-semibold">No active guardians</span>
-                            ) : (
-                              log.smsLogs.map((sms, i) => (
-                                <div key={i} className="flex items-center gap-1 text-[9px] bg-tertiary/30 px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground">
-                                  <Smartphone className="h-2.5 w-2.5 text-primary shrink-0" />
-                                  <span className="truncate font-semibold text-[8px]">{sms.guardian_name}: {sms.phone}</span>
-                                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0 ml-auto" />
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </td>
-
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      scanLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-tertiary/10 transition-colors animate-fade-in">
+                          <td className="px-5 py-3.5 whitespace-nowrap text-[11px] font-mono text-muted-foreground">
+                            {log.timestamp}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary select-none font-bold text-[10px] shrink-0">
+                                {log.studentName.charAt(0)}
+                              </div>
+                              <div>
+                                <span className="font-bold text-primary block text-[11px]">{log.studentName}</span>
+                                <span className="text-[9px] text-muted-foreground block font-semibold">{log.sectionName}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-[11px] text-muted-foreground font-mono">
+                            {log.rfid}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <div className="flex flex-col text-[9px] font-semibold text-neutral">
+                              <span>Dist: <strong className="text-primary">{log.distance}m</strong></span>
+                              <span>RSSI: <strong className="text-primary">{log.rssi} dBm</strong></span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            {log.direction === 'in' ? (
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                                Check IN
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                                Check OUT
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            {log.status === 'Present' && (
+                              <span className="text-[9px] font-bold text-emerald-600">On Time</span>
+                            )}
+                            {log.status === 'Late' && (
+                              <span className="text-[9px] font-bold text-amber-600">Late In</span>
+                            )}
+                            {log.status === 'Absent' && (
+                              <span className="text-[9px] font-bold text-red-600">Absent</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="space-y-1 max-w-[180px]">
+                              {log.smsLogs.length === 0 ? (
+                                <span className="text-[9px] text-muted-foreground font-semibold">No active guardians</span>
+                              ) : (
+                                log.smsLogs.map((sms, i) => (
+                                  <div key={i} className="flex items-center gap-1 text-[9px] bg-tertiary/30 px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground">
+                                    <Smartphone className="h-2.5 w-2.5 text-primary shrink-0" />
+                                    <span className="truncate font-semibold text-[8px]">{sms.guardian_name}: {sms.phone}</span>
+                                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0 ml-auto" />
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
             </div>
 
           </div>
 
         </div>
+      ) : (
+        /* TEACHER SIDE: Simplified View (Clean Live Gate Log) */
+        <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between bg-tertiary/20 px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-emerald-500" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Live RFID Gate Log</h3>
+            </div>
+            <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2.5 py-0.5 font-bold uppercase tracking-wider">
+              Real-Time Feed
+            </span>
+          </div>
 
-      </div>
+          <div className="overflow-x-auto max-h-[500px]">
+            <table className="w-full border-collapse text-left text-xs font-sans">
+              <thead>
+                <tr className="border-b border-border bg-tertiary/10 text-muted-foreground font-bold select-none uppercase tracking-wider">
+                  <th className="px-5 py-3 font-bold text-[10px]">Time</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">Student Name</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">RFID Card</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">Metrics</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">Direction</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">Status</th>
+                  <th className="px-5 py-3 font-bold text-[10px]">SMS Gateways</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border font-semibold text-neutral">
+                {scanLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground font-bold">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <Wifi className="h-7 w-7 text-muted-foreground/35 animate-pulse" />
+                        <span>No tags currently detected in the antenna field range.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  scanLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-tertiary/10 transition-colors animate-fade-in">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-[11px] font-mono text-muted-foreground">
+                        {log.timestamp}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary select-none font-bold text-[10px] shrink-0">
+                            {log.studentName.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-primary block text-[11px]">{log.studentName}</span>
+                            <span className="text-[9px] text-muted-foreground block font-semibold">{log.sectionName}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap text-[11px] text-muted-foreground font-mono">
+                        {log.rfid}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex flex-col text-[9px] font-semibold text-neutral">
+                          <span>Dist: <strong className="text-primary">{log.distance}m</strong></span>
+                          <span>RSSI: <strong className="text-primary">{log.rssi} dBm</strong></span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {log.direction === 'in' ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                            Check IN
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
+                            Check OUT
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {log.status === 'Present' && (
+                          <span className="text-[9px] font-bold text-emerald-600">On Time</span>
+                        )}
+                        {log.status === 'Late' && (
+                          <span className="text-[9px] font-bold text-amber-600">Late In</span>
+                        )}
+                        {log.status === 'Absent' && (
+                          <span className="text-[9px] font-bold text-red-600">Absent</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="space-y-1 max-w-[180px]">
+                          {log.smsLogs.length === 0 ? (
+                            <span className="text-[9px] text-muted-foreground font-semibold">No active guardians</span>
+                          ) : (
+                            log.smsLogs.map((sms, i) => (
+                              <div key={i} className="flex items-center gap-1 text-[9px] bg-tertiary/30 px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground">
+                                <Smartphone className="h-2.5 w-2.5 text-primary shrink-0" />
+                                <span className="truncate font-semibold text-[8px]">{sms.guardian_name}: {sms.phone}</span>
+                                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0 ml-auto" />
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
     </div>
   )

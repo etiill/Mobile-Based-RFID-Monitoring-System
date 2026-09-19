@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { 
   UserPlus, 
   Pencil, 
@@ -45,9 +46,35 @@ interface Section {
 }
 
 export function Registration() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab") as "students" | "teachers" | "sections" | null
+
   // Students List State
   const [students, setStudents] = useState<Student[]>([])
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
+
+  // Tab State synchronized with URL search params
+  const [activeTab, setActiveTabState] = useState<"students" | "teachers" | "sections" | null>(
+    tabParam || null
+  )
+
+  const setActiveTab = (tab: "students" | "teachers" | "sections" | null) => {
+    setActiveTabState(tab)
+    if (tab) {
+      setSearchParams({ tab })
+    } else {
+      setSearchParams({})
+    }
+  }
+
+  useEffect(() => {
+    if (tabParam === "students" || tabParam === "teachers" || tabParam === "sections") {
+      setActiveTabState(tabParam)
+    } else if (!tabParam) {
+      setActiveTabState(null)
+    }
+  }, [tabParam])
+
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -95,9 +122,6 @@ export function Registration() {
   const [isGuardianModalOpen, setIsGuardianModalOpen] = useState(false)
   const [selectedStudentId, setSelectedStudentId] = useState<string | number | null>(null)
   const [editingStudentId, setEditingStudentId] = useState<string | number | null>(null)
-
-  // Tab State
-  const [activeTab, setActiveTab] = useState<"students" | "teachers" | "sections" | null>(null)
 
   // Teachers State
   const [teachers, setTeachers] = useState<any[]>([])
@@ -574,9 +598,9 @@ export function Registration() {
               <Users className="h-6 w-6" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="font-bold text-sm text-primary">Students & Guardians</h3>
+              <h3 className="font-bold text-sm text-primary">Guardians</h3>
               <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
-                Register new student profiles and set up emergency authorized parent credentials.
+                Register student profiles and set up emergency authorized parent credentials.
               </p>
             </div>
           </div>
@@ -639,7 +663,7 @@ export function Registration() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-primary">
               {activeTab === "students" 
-                ? "Student & Guardian Registration" 
+                ? "Guardian Registration" 
                 : activeTab === "teachers" 
                   ? "Teacher Account Registration"
                   : "Year Level & Section Registration"

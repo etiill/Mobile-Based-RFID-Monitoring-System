@@ -1,16 +1,18 @@
 import { useState } from "react"
-import { NavLink } from "react-router-dom"
-import { 
-  LayoutGrid, 
-  CreditCard, 
-  ChevronLeft, 
-  ChevronRight, 
-  Menu, 
-  X, 
-  Bell, 
+import { NavLink, useLocation } from "react-router-dom"
+import {
+  LayoutGrid,
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  X,
+  Bell,
   ScanLine,
   UserRound,
-  Users
+  Users,
+  UserPlus,
+  Layers
 } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { PATHS } from "../../routes/path"
@@ -27,14 +29,24 @@ export const ADMIN_ROUTES = [
     icon: LayoutGrid,
   },
   {
-    label: "Registration",
-    path: PATHS.APP.ADMIN.REGISTRATION,
-    icon: CreditCard,
-  },
-  {
     label: "Pupils",
     path: PATHS.APP.ADMIN.PUPILS,
     icon: UserRound,
+  },
+  {
+    label: "Guardians",
+    path: `${PATHS.APP.ADMIN.REGISTRATION}?tab=students`,
+    icon: Users,
+  },
+  {
+    label: "Teachers",
+    path: `${PATHS.APP.ADMIN.REGISTRATION}?tab=teachers`,
+    icon: UserPlus,
+  },
+  {
+    label: "Sections & Classes",
+    path: `${PATHS.APP.ADMIN.REGISTRATION}?tab=sections`,
+    icon: Layers,
   },
   {
     label: "RFID Scan",
@@ -60,11 +72,6 @@ export const TEACHER_ROUTES = [
     icon: UserRound,
   },
   {
-    label: "RFID Scan",
-    path: PATHS.APP.TEACHER.RFID_SCAN,
-    icon: ScanLine,
-  },
-  {
     label: "Report",
     path: PATHS.APP.TEACHER.REPORTS,
     icon: UserRound,
@@ -81,14 +88,24 @@ export const GUARDIAN_ROUTES = [
 
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const location = useLocation()
   const user = JSON.parse(localStorage.getItem("user") || "{}")
   const role = user.role || "admin"
 
-  const filteredRoutes = 
+  const filteredRoutes =
     role === "admin" ? ADMIN_ROUTES :
-    role === "teacher" ? TEACHER_ROUTES :
-    role === "guardian" ? GUARDIAN_ROUTES :
-    GUARDIAN_ROUTES;
+      role === "teacher" ? TEACHER_ROUTES :
+        role === "guardian" ? GUARDIAN_ROUTES :
+          GUARDIAN_ROUTES;
+
+  const currentFullUrl = `${location.pathname}${location.search}`
+
+  const isItemActive = (itemPath: string) => {
+    if (itemPath.includes("?")) {
+      return currentFullUrl === itemPath
+    }
+    return location.pathname === itemPath && !location.search
+  }
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -149,7 +166,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               </div>
             </div>
           )}
-          
+
           {/* Desktop Sidebar Collapse Toggle Arrow */}
           <button
             onClick={toggleSidebar}
@@ -170,36 +187,37 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             >
               {isCollapsed ? "---" : "Main Menu"}
             </p>
-            {filteredRoutes.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  cn(
+            {filteredRoutes.map((item) => {
+              const isActive = isItemActive(item.path)
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
                     "flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 group relative cursor-pointer",
                     isActive
                       ? "bg-white/10 text-white shadow-sm font-bold"
                       : "text-white/70 hover:bg-white/5 hover:text-white"
-                  )
-                }
-              >
-                <item.icon
-                  size={18}
-                  className="shrink-0 transition-transform group-hover:scale-110"
-                />
-                {!isCollapsed && (
-                  <span className="font-semibold text-sm whitespace-nowrap overflow-hidden">
-                    {item.label}
-                  </span>
-                )}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-neutral text-white text-[11px] font-semibold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl border border-white/10">
-                    {item.label}
-                  </div>
-                )}
-              </NavLink>
-            ))}
+                  )}
+                >
+                  <item.icon
+                    size={18}
+                    className="shrink-0 transition-transform group-hover:scale-110"
+                  />
+                  {!isCollapsed && (
+                    <span className="font-semibold text-sm whitespace-nowrap overflow-hidden">
+                      {item.label}
+                    </span>
+                  )}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-neutral text-white text-[11px] font-semibold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl border border-white/10">
+                      {item.label}
+                    </div>
+                  )}
+                </NavLink>
+              )
+            })}
           </nav>
 
           {/* Bottom System Alert Trigger */}

@@ -4,6 +4,7 @@ export const PATHS = {
   // Public/Guest Routes
   HOME: "/",
   LOGIN: "/login",
+  CHECKOUT_CONFIRM: "/checkout-confirm",
 
   // App / Protected Routes
   APP: {
@@ -31,7 +32,5 @@ export const PATHS = {
       DASHBOARD: `${APP_ROOT}/dashboard`,
     }
   },
-
-
 
 } as const
