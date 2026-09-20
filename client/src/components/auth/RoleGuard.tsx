@@ -7,9 +7,11 @@ interface RoleGuardProps {
 
 export function RoleGuard({ allowedRoles }: RoleGuardProps) {
   const user = JSON.parse(localStorage.getItem("user") || "{}")
-  const role = user.role || "admin"
+  const rawRole = user.role || user.role_name || (user.roles && user.roles[0]?.name) || "admin"
+  const role = typeof rawRole === "string" ? rawRole.toLowerCase().trim() : "admin"
+  const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase().trim())
 
-  if (!allowedRoles.includes(role)) {
+  if (!normalizedAllowedRoles.includes(role)) {
     return <Navigate to={PATHS.APP.DASHBOARD} replace />
   }
 

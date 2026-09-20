@@ -4,7 +4,6 @@ export const PATHS = {
   // Public/Guest Routes
   HOME: "/",
   LOGIN: "/login",
-  CHECKOUT_CONFIRM: "/checkout-confirm",
 
   // App / Protected Routes
   APP: {
@@ -24,6 +23,7 @@ export const PATHS = {
       RFID_SCAN: `${APP_ROOT}/rfid_scan`,
       MY_STUDENTS: `${APP_ROOT}/my_students`,
       ATTENDANCE: `${APP_ROOT}/attendance`,
+      PICKUP_LOGS: `${APP_ROOT}/pickup_logs`,
       REPORTS: `${APP_ROOT}/reports`,
     },
 

@@ -13,6 +13,7 @@ import Pupils from "@/pages/Pupils/Pupils"
 import MyStudents from "@/pages/MyStudents/MyStudents"
 import Attendance from "@/pages/Attendance/Attendance"
 import Report from "@/pages/Report/Report"
+import PickUpLogs from "@/pages/PickUpLogs/PickUpLogs"
 
 /**
  * Lazy loading helper with a configurable minimum loading delay.
@@ -48,22 +49,14 @@ const LazyLogin = lazyWithDelay(() => import("../pages/auth/Login"))
 const Dashboard = lazyWithDelay(() => import("../pages/Dashboard"))
 const Registration = lazyWithDelay(() => import("../pages/Registration/registration"))
 const TeacherProfile = lazyWithDelay(() => import("../pages/TeacherProfile/TeacherProfile"))
-const LazyCheckoutConfirm = lazyWithDelay(() => import("../pages/CheckoutConfirm/CheckoutConfirm"))
-
 // Suspense-wrapped pages (for guest page)
 const Login = withSuspense(LazyLogin)
-const CheckoutConfirm = withSuspense(LazyCheckoutConfirm)
 
 /**
  * Main application routes configuration using React Router v7 Data API.
  * Grouped cleanly by accessibility level.
  */
 export const router = createBrowserRouter([
-  // Public Guardian Checkout Confirmation Route
-  {
-    path: PATHS.CHECKOUT_CONFIRM,
-    element: <CheckoutConfirm />,
-  },
 
   // Guest Routes (Accessible only to unauthenticated users)
   {
@@ -91,6 +84,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard",
             element: <Dashboard />,
+          },
+          {
+            path: "pickup_logs",
+            element: <PickUpLogs />,
           },
           
           // Admin Only Routes
@@ -132,6 +129,10 @@ export const router = createBrowserRouter([
                 path: "reports",
                 element: <Report />,
               },
+              {
+                path: "pickup_logs",
+                element: <PickUpLogs />,
+              },
             ],
           },
         ],
@@ -143,6 +144,10 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <Navigate to={PATHS.APP.DASHBOARD} replace />,
+  },
+  {
+    path: "/pickup_logs",
+    element: <Navigate to={PATHS.APP.TEACHER.PICKUP_LOGS} replace />,
   },
   {
     path: "*",

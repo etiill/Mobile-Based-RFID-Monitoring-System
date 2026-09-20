@@ -12,7 +12,12 @@ import {
   UserRound,
   Users,
   UserPlus,
-  Layers
+  Layers,
+  ShieldCheck,
+  Home,
+  MapPin,
+  CalendarCheck,
+  User
 } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { PATHS } from "../../routes/path"
@@ -53,6 +58,11 @@ export const ADMIN_ROUTES = [
     path: PATHS.APP.TEACHER.RFID_SCAN,
     icon: ScanLine,
   },
+  {
+    label: "Pick Up Logs",
+    path: PATHS.APP.TEACHER.PICKUP_LOGS,
+    icon: ShieldCheck,
+  },
 ]
 
 export const TEACHER_ROUTES = [
@@ -62,7 +72,7 @@ export const TEACHER_ROUTES = [
     icon: LayoutGrid,
   },
   {
-    label: "My Students",
+    label: "Pupils",
     path: PATHS.APP.TEACHER.MY_STUDENTS,
     icon: Users,
   },
@@ -70,6 +80,11 @@ export const TEACHER_ROUTES = [
     label: "Attendance",
     path: PATHS.APP.TEACHER.ATTENDANCE,
     icon: UserRound,
+  },
+  {
+    label: "Pick Up Logs",
+    path: PATHS.APP.TEACHER.PICKUP_LOGS,
+    icon: ShieldCheck,
   },
   {
     label: "Report",
@@ -80,9 +95,29 @@ export const TEACHER_ROUTES = [
 
 export const GUARDIAN_ROUTES = [
   {
-    label: "Dashboard",
-    path: PATHS.APP.GUARDIAN.DASHBOARD,
-    icon: LayoutGrid,
+    label: "Home",
+    path: `${PATHS.APP.GUARDIAN.DASHBOARD}?tab=home`,
+    icon: Home,
+  },
+  {
+    label: "Monitoring",
+    path: `${PATHS.APP.GUARDIAN.DASHBOARD}?tab=monitoring`,
+    icon: MapPin,
+  },
+  {
+    label: "Attendance",
+    path: `${PATHS.APP.GUARDIAN.DASHBOARD}?tab=attendance`,
+    icon: CalendarCheck,
+  },
+  {
+    label: "Notifications",
+    path: `${PATHS.APP.GUARDIAN.DASHBOARD}?tab=alerts`,
+    icon: Bell,
+  },
+  {
+    label: "Profile",
+    path: `${PATHS.APP.GUARDIAN.DASHBOARD}?tab=profile`,
+    icon: User,
   },
 ]
 
@@ -90,18 +125,22 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
   const user = JSON.parse(localStorage.getItem("user") || "{}")
-  const role = user.role || "admin"
+  const rawRole = user.role || user.role_name || "admin"
+  const role = typeof rawRole === "string" ? rawRole.toLowerCase().trim() : "admin"
 
   const filteredRoutes =
     role === "admin" ? ADMIN_ROUTES :
       role === "teacher" ? TEACHER_ROUTES :
         role === "guardian" ? GUARDIAN_ROUTES :
-          GUARDIAN_ROUTES;
+          TEACHER_ROUTES;
 
   const currentFullUrl = `${location.pathname}${location.search}`
 
   const isItemActive = (itemPath: string) => {
     if (itemPath.includes("?")) {
+      if (itemPath.includes("?tab=home") && (currentFullUrl === itemPath || (location.pathname === PATHS.APP.GUARDIAN.DASHBOARD && (!location.search || location.search === "?tab=home")))) {
+        return true
+      }
       return currentFullUrl === itemPath
     }
     return location.pathname === itemPath && !location.search

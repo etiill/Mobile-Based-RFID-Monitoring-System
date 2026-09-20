@@ -240,7 +240,7 @@ class StudentController extends Controller
             ], 401);
         }
 
-        $student = Student::with('guardians')->find($guardian->student_id);
+        $student = Student::with(['guardians', 'section.teacher'])->find($guardian->student_id);
 
         if (!$student) {
             return response()->json([

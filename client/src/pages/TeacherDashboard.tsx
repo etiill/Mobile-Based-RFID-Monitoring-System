@@ -1,18 +1,30 @@
 import { useState, useEffect, useMemo } from "react"
+import { Link } from "react-router-dom"
 import { 
-  Users, 
-  CheckCircle, 
-  Calendar, 
-  Activity, 
-  AlertTriangle,
-  QrCode,
+  Sun,
+  GraduationCap,
+  Check,
+  X,
+  Timer,
+  BookOpen,
+  School,
   ShieldCheck,
+  Phone,
+  Bell,
+  CheckCircle2,
   UserCheck,
-  LogOut
+  Megaphone,
+  ArrowRight,
+  Search,
+  Copy,
+  Clock,
+  LogIn,
+  LogOut,
+  ChevronDown,
+  UserRound
 } from "lucide-react"
 import ApiHandler from "../api/ApiHandler"
 import { LoadingScreen } from "../components/LoadingScreen"
-import GuardianQrModal from "../components/GuardianQrModal"
 import { toast } from "../components/ui/toast"
 
 interface Guardian {
@@ -20,12 +32,19 @@ interface Guardian {
   name: string
   relation: string
   phone: string
+  email?: string
 }
 
 interface Section {
   id: string | number
   year_level: string
   section_name: string
+  teacher_id?: string | number | null
+  teacher?: {
+    id: string | number
+    name: string
+    email?: string
+  } | null
 }
 
 interface Student {
@@ -34,30 +53,79 @@ interface Student {
   grade: string
   rfid: string
   guardians: Guardian[]
+  section_id?: string | number | null
   section?: Section | null
+}
+
+interface AttendanceRecord {
+  id: number
+  student_id: string | number
+  date: string
+  time_in: string | null
+  time_out: string | null
+  status: string
+  verified_by?: string
+  student?: Student
 }
 
 export function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([])
-  const [attendances, setAttendances] = useState<any[]>([])
+  const [sections, setSections] = useState<Section[]>([])
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"all" | "present" | "checked_out" | "absent">("all")
+  
+  // Section filter
+  const [selectedSectionId, setSelectedSectionId] = useState<string | number | "all">("all")
 
-  // Guardian QR Modal state
-  const [qrModalState, setQrModalState] = useState<{
-    isOpen: boolean
-    student: Student | null
-    token: string
-    expiresAt: string
-  }>({
-    isOpen: false,
-    student: null,
-    token: "",
-    expiresAt: ""
-  })
-  const [generatingStudentId, setGeneratingStudentId] = useState<string | number | null>(null)
+  // Pupil filter
+  const [activePupilTab, setActivePupilTab] = useState<"all" | "present" | "late" | "absent" | "checked_out">("all")
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Selected student for quick details & action modal
+  const [selectedPupilModal, setSelectedPupilModal] = useState<Student | null>(null)
+  const [isActionLoading, setIsActionLoading] = useState(false)
+
+  // Selected guardian for quick contact modal
+  const [selectedGuardianModal, setSelectedGuardianModal] = useState<{
+    guardian: Guardian
+    studentName: string
+  } | null>(null)
+
 
   const user = JSON.parse(localStorage.getItem("user") || "{}")
+  const role = user.role || "teacher"
+  const displayName = user.name || (role === "admin" ? "Administrator" : "Ms. Garcia")
+
+  // Greeting dynamic based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return "Good Morning"
+    if (hour < 18) return "Good Afternoon"
+    return "Good Evening"
+  }
+
+  // Format military time to standard 12-hr format
+  const formatTime12h = (rawTime?: string | null) => {
+    if (!rawTime || rawTime === "--:--") return "--:--"
+    if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
+      return rawTime
+    }
+    try {
+      const parts = rawTime.split(":")
+      if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10)
+        const minutes = parseInt(parts[1], 10)
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const ampm = hours >= 12 ? 'PM' : 'AM'
+          hours = hours % 12
+          hours = hours ? hours : 12
+          const strMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`
+          return `${hours}:${strMinutes} ${ampm}`
+        }
+      }
+    } catch {}
+    return rawTime
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -67,15 +135,36 @@ export function TeacherDashboard() {
       const day = String(now.getDate()).padStart(2, '0')
       const localToday = `${year}-${month}-${day}`
 
-      const studentsData = await ApiHandler.get<Student[]>("/students")
-      let attendanceData = await ApiHandler.get<any[]>(`/attendance?date=${localToday}`)
+      const [studentsData, sectionsData] = await Promise.all([
+        ApiHandler.get<Student[]>("/students"),
+        ApiHandler.get<Section[]>("/sections")
+      ])
+
+      let attendanceData = await ApiHandler.get<AttendanceRecord[]>(`/attendance?date=${localToday}`)
       if (!Array.isArray(attendanceData) || attendanceData.length === 0) {
-        attendanceData = await ApiHandler.get<any[]>(`/attendance`)
+        attendanceData = await ApiHandler.get<AttendanceRecord[]>(`/attendance`)
       }
-      setStudents(studentsData)
-      setAttendances(attendanceData)
+
+      if (Array.isArray(studentsData)) {
+        setStudents(studentsData)
+      }
+      if (Array.isArray(sectionsData)) {
+        setSections(sectionsData)
+        if (selectedSectionId === "all" && sectionsData.length > 0) {
+          // If teacher is assigned to a section, select it by default
+          const assigned = sectionsData.find(s => s.teacher_id?.toString() === user.id?.toString())
+          if (assigned) {
+            setSelectedSectionId(assigned.id)
+          } else {
+            setSelectedSectionId(sectionsData[0].id)
+          }
+        }
+      }
+      if (Array.isArray(attendanceData)) {
+        setAttendances(attendanceData)
+      }
     } catch (error) {
-      console.error("Failed to load teacher dashboard data:", error)
+      console.error("Failed to load dashboard data:", error)
     } finally {
       setIsLoading(false)
     }
@@ -83,7 +172,7 @@ export function TeacherDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-    const interval = setInterval(fetchDashboardData, 3000)
+    const interval = setInterval(fetchDashboardData, 3500)
 
     const handleCustomScanEvent = () => fetchDashboardData()
     window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
@@ -101,169 +190,333 @@ export function TeacherDashboard() {
     }
   }, [])
 
-  // Helper to convert military 24-hour time to standard 12-hour AM/PM time
-  const formatToStandardTime = (rawTime?: string | null) => {
-    if (!rawTime || rawTime === "--:--") return "--:--"
-    if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
-      return rawTime
+  // Currently active section
+  const currentSection = useMemo(() => {
+    if (selectedSectionId === "all") {
+      return sections[0] || null
     }
-    try {
-      const parts = rawTime.split(":")
-      if (parts.length >= 2) {
-        let hours = parseInt(parts[0], 10)
-        const minutes = parseInt(parts[1], 10)
-        const seconds = parts[2] ? parseInt(parts[2], 10) : undefined
+    return sections.find(s => s.id.toString() === selectedSectionId.toString()) || sections[0] || null
+  }, [sections, selectedSectionId])
 
-        if (!isNaN(hours) && !isNaN(minutes)) {
-          const ampm = hours >= 12 ? 'PM' : 'AM'
-          hours = hours % 12
-          hours = hours ? hours : 12
-          const strMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`
+  // Filter students based on section
+  const filteredClassStudents = useMemo(() => {
+    if (selectedSectionId === "all" || !selectedSectionId) {
+      return students
+    }
+    return students.filter(s => s.section_id?.toString() === selectedSectionId.toString() || s.section?.id?.toString() === selectedSectionId.toString())
+  }, [students, selectedSectionId])
 
-          if (seconds !== undefined) {
-            const strSeconds = seconds < 10 ? `0${seconds}` : `${seconds}`
-            return `${hours}:${strMinutes}:${strSeconds} ${ampm}`
+  // Attendance map by student ID
+  const attendanceMap = useMemo(() => {
+    const map: Record<string | number, AttendanceRecord> = {}
+    attendances.forEach(att => {
+      if (att.student_id) {
+        map[att.student_id] = att
+      }
+    })
+    return map
+  }, [attendances])
+
+  // Top stats
+  const totalStudents = filteredClassStudents.length
+  const presentCount = filteredClassStudents.filter(s => {
+    const att = attendanceMap[s.id]
+    return att && (att.status === "Present" || att.status === "Late" || att.time_in) && !att.time_out
+  }).length
+
+  const lateCount = filteredClassStudents.filter(s => {
+    const att = attendanceMap[s.id]
+    return att && att.status === "Late"
+  }).length
+
+  const checkedOutCount = filteredClassStudents.filter(s => {
+    const att = attendanceMap[s.id]
+    return att && att.time_out
+  }).length
+
+  const absentCount = Math.max(0, totalStudents - presentCount - checkedOutCount)
+
+  const presentPercentage = totalStudents > 0 ? ((presentCount / totalStudents) * 100).toFixed(1) : "0"
+  const absentPercentage = totalStudents > 0 ? ((absentCount / totalStudents) * 100).toFixed(1) : "0"
+
+  // Process pupils for display with avatar styling
+  const avatarColors = [
+    "bg-rose-100 text-rose-600",
+    "bg-sky-100 text-sky-600",
+    "bg-amber-100 text-amber-700",
+    "bg-purple-100 text-purple-600",
+    "bg-emerald-100 text-emerald-700",
+    "bg-indigo-100 text-indigo-700"
+  ]
+
+  const pupilsOverviewList = useMemo(() => {
+    return filteredClassStudents
+      .map((student, idx) => {
+        const att = attendanceMap[student.id]
+        let status: "Present" | "Late (5m)" | "Absent" | "Checked Out" = "Absent"
+        let statusColor = "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/30"
+        let rawStatus = "Absent"
+
+        if (att) {
+          if (att.time_out) {
+            status = "Checked Out"
+            rawStatus = "Checked Out"
+            statusColor = "bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-950/30 dark:border-blue-900/30"
+          } else if (att.status === "Late") {
+            status = "Late (5m)"
+            rawStatus = "Late"
+            statusColor = "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/30"
+          } else if (att.time_in || att.status === "Present" || att.status === "Checked In") {
+            status = "Present"
+            rawStatus = "Present"
+            statusColor = "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/30"
           }
-          return `${hours}:${strMinutes} ${ampm}`
+        }
+
+        const nameParts = student.name.split(" ")
+        const initials = nameParts.length >= 2 
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+          : student.name.substring(0, 2).toUpperCase()
+
+        const sectionLabel = student.section 
+          ? `${student.section.year_level} • ${student.section.section_name}`
+          : "Kindergarten • Section A"
+
+        return {
+          student,
+          id: student.id,
+          name: student.name,
+          rfid: student.rfid,
+          sectionLabel,
+          status,
+          rawStatus,
+          statusColor,
+          avatarBg: avatarColors[idx % avatarColors.length],
+          initials,
+          timeIn: att?.time_in ? formatTime12h(att.time_in) : "--:--",
+          timeOut: att?.time_out ? formatTime12h(att.time_out) : "--:--",
+          verifiedBy: att?.verified_by || "N/A"
+        }
+      })
+      .filter((pupil) => {
+        // Tab filter
+        if (activePupilTab === "present" && pupil.rawStatus !== "Present") return false
+        if (activePupilTab === "late" && pupil.rawStatus !== "Late") return false
+        if (activePupilTab === "absent" && pupil.rawStatus !== "Absent") return false
+        if (activePupilTab === "checked_out" && pupil.rawStatus !== "Checked Out") return false
+
+        // Search filter
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase()
+          return pupil.name.toLowerCase().includes(q) || pupil.rfid.toLowerCase().includes(q)
+        }
+        return true
+      })
+  }, [filteredClassStudents, attendanceMap, activePupilTab, searchQuery])
+
+  // Extract Guardians list
+  const guardiansList = useMemo(() => {
+    const list: Array<{
+      id: string | number
+      name: string
+      phone: string
+      relation: string
+      studentName: string
+      avatarBg: string
+      initials: string
+      rawGuardian: Guardian
+    }> = []
+
+    filteredClassStudents.forEach((student) => {
+      if (Array.isArray(student.guardians)) {
+        student.guardians.forEach((g) => {
+          if (g.name && !list.some(item => item.name === g.name)) {
+            const parts = g.name.split(" ")
+            const initials = parts.length >= 2 
+              ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+              : g.name.substring(0, 2).toUpperCase()
+
+            list.push({
+              id: g.id || `g-${list.length}`,
+              name: g.name,
+              phone: g.phone || "0917 555 0100",
+              relation: g.relation || "Guardian",
+              studentName: student.name,
+              avatarBg: avatarColors[list.length % avatarColors.length],
+              initials,
+              rawGuardian: g
+            })
+          }
+        })
+      }
+    })
+
+    return list.slice(0, 6)
+  }, [filteredClassStudents])
+
+  // Dynamic Recent Notifications from real attendance events
+  const dynamicNotifications = useMemo(() => {
+    const items: Array<{
+      id: string | number
+      type: "arrival" | "pickup" | "announcement" | "late"
+      title: string
+      time: string
+      studentName?: string
+    }> = []
+
+    // Map recent attendance events
+    attendances.slice(0, 10).forEach((att) => {
+      const studentName = att.student?.name || (students.find(s => s.id === att.student_id)?.name) || "Pupil"
+      
+      if (att.time_out) {
+        items.push({
+          id: `notif-out-${att.id}`,
+          type: "pickup",
+          title: `${studentName} was checked out by guardian (${att.verified_by || 'Guardian QR'}).`,
+          time: formatTime12h(att.time_out),
+          studentName
+        })
+      }
+
+      if (att.time_in) {
+        if (att.status === "Late") {
+          items.push({
+            id: `notif-late-${att.id}`,
+            type: "late",
+            title: `${studentName} arrived late for class.`,
+            time: formatTime12h(att.time_in),
+            studentName
+          })
+        } else {
+          items.push({
+            id: `notif-in-${att.id}`,
+            type: "arrival",
+            title: `${studentName} arrived at the Kindergarten Entrance.`,
+            time: formatTime12h(att.time_in),
+            studentName
+          })
         }
       }
-    } catch {}
+    })
 
-    try {
-      const dateObj = new Date(`2000-01-01T${rawTime}`)
-      if (!isNaN(dateObj.getTime())) {
-        return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-      }
-    } catch {}
-
-    return rawTime
-  }
-
-  // Generate QR Code handler
-  const handleGenerateQr = async (student: Student) => {
-    setGeneratingStudentId(student.id)
-    try {
-      const response = await ApiHandler.post<{
-        token: string
-        expires_at: string
-        student: Student
-      }>("/attendance/checkout-qr/generate", { student_id: student.id })
-
-      setQrModalState({
-        isOpen: true,
-        student: student,
-        token: response.token,
-        expiresAt: response.expires_at
+    // System announcement if fewer than 3
+    if (items.length < 3) {
+      items.push({
+        id: "sys-announcement",
+        type: "announcement",
+        title: "A new class announcement has been posted.",
+        time: "Yesterday, 04:12 PM"
       })
-    } catch (err: any) {
-      console.error("Failed to generate QR code:", err)
+    }
+
+    return items.slice(0, 3)
+  }, [attendances, students])
+
+
+
+  // Quick Manual Check-in handler (Present or Late)
+  const handleQuickCheckIn = async (student: Student, status: "Present" | "Late") => {
+    setIsActionLoading(true)
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const localToday = `${year}-${month}-${day}`
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+      await ApiHandler.post("/attendance/override", {
+        student_id: student.id,
+        date: localToday,
+        status: status,
+        time_in: currentTime,
+        time_out: null
+      })
+
       toast.add({
-        title: "QR Generation Failed",
-        description: err.message || "Could not generate checkout QR code.",
+        title: "Attendance Recorded",
+        description: `${student.name} marked as ${status}.`,
+        type: "success"
+      })
+
+      // Notify broadcast channel
+      try {
+        const bc = new BroadcastChannel("rfid_attendance_sync")
+        bc.postMessage({ event: "attendance_updated" })
+        bc.close()
+      } catch {}
+
+      await fetchDashboardData()
+      setSelectedPupilModal(null)
+    } catch (err: any) {
+      console.error("Failed manual check-in:", err)
+      toast.add({
+        title: "Action Failed",
+        description: err.message || "Could not record attendance.",
         type: "error"
       })
     } finally {
-      setGeneratingStudentId(null)
+      setIsActionLoading(false)
     }
   }
 
-  // Map students to real-time attendance records synced from admin side
-  const attendanceRoster = useMemo(() => {
-    return students.map((student) => {
-      const record = attendances.find(a => a.student_id === student.id)
-      let status: "Present" | "Late" | "Absent" | "Checked In" | "Checked Out" = "Absent"
-      let timeIn = "--:--"
-      let timeOut = "--:--"
-      let verifiedBy = "N/A"
+  // Quick Manual Check-out handler (Manual Pickup Override)
+  const handleQuickCheckOut = async (student: Student) => {
+    setIsActionLoading(true)
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const localToday = `${year}-${month}-${day}`
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
 
-      if (record) {
-        verifiedBy = record.verified_by || "RFID System"
-        if (record.time_in) {
-          timeIn = formatToStandardTime(record.time_in)
-        }
-        if (record.time_out) {
-          timeOut = formatToStandardTime(record.time_out)
-        }
+      const currentAtt = attendanceMap[student.id]
 
-        if (record.status) {
-          status = record.status
-        } else if (record.time_out) {
-          status = "Checked Out"
-        } else if (record.time_in) {
-          status = "Checked In"
-        }
-      }
+      await ApiHandler.post("/attendance/override", {
+        student_id: student.id,
+        date: localToday,
+        status: "Checked Out",
+        time_in: currentAtt?.time_in || "08:00:00",
+        time_out: currentTime
+      })
 
-      const sectionLabel = student.section 
-        ? `${student.section.year_level} - ${student.section.section_name}`
-        : student.grade.replace("Grade: ", "")
+      toast.add({
+        title: "Pickup Confirmed",
+        description: `${student.name} marked as Checked Out (Manual Pickup).`,
+        type: "success"
+      })
 
-      return {
-        ...student,
-        sectionLabel,
-        status,
-        timeIn,
-        timeOut,
-        verifiedBy
-      }
+      try {
+        const bc = new BroadcastChannel("rfid_attendance_sync")
+        bc.postMessage({ event: "attendance_updated" })
+        bc.close()
+      } catch {}
+
+      await fetchDashboardData()
+      setSelectedPupilModal(null)
+    } catch (err: any) {
+      console.error("Failed manual checkout:", err)
+      toast.add({
+        title: "Action Failed",
+        description: err.message || "Could not record pickup.",
+        type: "error"
+      })
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  // Copy phone helper
+  const handleCopyPhone = (phone: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(phone)
+    toast.add({
+      title: "Phone Copied",
+      description: `Copied ${phone} to clipboard.`,
+      type: "success"
     })
-  }, [students, attendances])
-
-  // Filter roster by active tab
-  const filteredRoster = useMemo(() => {
-    return attendanceRoster.filter(s => {
-      if (activeTab === "present") {
-        return (s.status === "Present" || s.status === "Checked In" || s.status === "Late") && s.timeOut === "--:--"
-      }
-      if (activeTab === "checked_out") {
-        return s.status === "Checked Out"
-      }
-      if (activeTab === "absent") {
-        return s.status === "Absent"
-      }
-      return true
-    })
-  }, [attendanceRoster, activeTab])
-
-  const totalPupils = attendanceRoster.length
-  const presentCount = attendanceRoster.filter(s => (s.status === "Present" || s.status === "Checked In" || s.status === "Late") && s.timeOut === "--:--").length
-  const checkedOutCount = attendanceRoster.filter(s => s.status === "Checked Out").length
-  const absentCount = attendanceRoster.filter(s => s.status === "Absent").length
-
-  const stats = [
-    {
-      label: "Class Roster Total",
-      value: `${totalPupils} Pupils`,
-      change: "Grade: K-1 & K-2",
-      icon: Users,
-      iconColor: "text-primary",
-      iconBg: "bg-primary/10",
-    },
-    {
-      label: "Currently Present",
-      value: `${presentCount} In Class`,
-      change: "Awaiting Guardian Pickup",
-      icon: CheckCircle,
-      iconColor: "text-emerald-500",
-      iconBg: "bg-emerald-50 dark:bg-emerald-950/20",
-    },
-    {
-      label: "Checked Out Today",
-      value: `${checkedOutCount} Picked Up`,
-      change: "Guardian QR Verified",
-      icon: LogOut,
-      iconColor: "text-blue-500",
-      iconBg: "bg-blue-50 dark:bg-blue-950/20",
-    },
-    {
-      label: "Today's Absences",
-      value: `${absentCount} Absent`,
-      change: "Excused parents notified",
-      icon: AlertTriangle,
-      iconColor: "text-amber-500",
-      iconBg: "bg-amber-50 dark:bg-amber-950/20",
-    },
-  ]
+  }
 
   if (isLoading) {
     return (
@@ -274,213 +527,758 @@ export function TeacherDashboard() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in text-neutral">
+    <div className="space-y-6 animate-fade-in font-sans text-neutral max-w-[1400px] mx-auto pb-8">
       
-      {/* Welcome & Info */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary dark:text-foreground">Teacher Workspace</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Welcome back, <span className="font-semibold text-primary dark:text-foreground">{user.name || "Teacher"}</span>. Manage student arrival attendance and generate secure Guardian Checkout QR Codes below.
-          </p>
+      {/* 1. Header Greeting & Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
+            <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
+                {getGreeting()}, {displayName}!
+              </h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-50 text-sky-600 border border-sky-200/60">
+                Active
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-0.5">
+              Here's what's happening in your class today.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 rounded-xl bg-card border border-border px-4 py-2.5 text-xs font-semibold text-muted-foreground shadow-sm">
-          <Calendar className="h-4 w-4 text-primary" />
-          <span>Today: {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-        </div>
+
+        {/* Section Switcher if multiple sections exist */}
+        {sections.length > 1 && (
+          <div className="flex items-center gap-2 self-start sm:self-auto bg-card border border-border px-3 py-1.5 rounded-2xl shadow-xs">
+            <School className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-xs font-bold text-muted-foreground">Class:</span>
+            <select
+              value={selectedSectionId}
+              onChange={(e) => setSelectedSectionId(e.target.value)}
+              className="bg-transparent text-xs font-extrabold text-neutral outline-none cursor-pointer border-none pr-2"
+            >
+              <option value="all">All Sections ({students.length})</option>
+              {sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.year_level} - {sec.section_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Stats Summary Row */}
+      {/* 2. Top Stats Row (4 Metric Cards with Click-to-filter capability) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, idx) => {
-          const Icon = stat.icon
-          return (
-            <div key={idx} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {stat.label}
-                </span>
-                <div className={`rounded-lg p-2 ${stat.iconBg} ${stat.iconColor}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <span className="text-2xl font-bold tracking-tight">{stat.value}</span>
-                <p className="text-xs text-muted-foreground mt-1 font-semibold">{stat.change}</p>
+        
+        {/* TOTAL STUDENTS */}
+        <button
+          onClick={() => setActivePupilTab("all")}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
+            activePupilTab === "all" ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 block">
+              TOTAL STUDENTS
+            </span>
+            <div className="mt-1">
+              <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
+                {totalStudents}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium mt-1.5 block">
+                In your class
+              </span>
+            </div>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shrink-0">
+            <GraduationCap className="h-6 w-6" />
+          </div>
+        </button>
+
+        {/* PRESENT */}
+        <button
+          onClick={() => setActivePupilTab("present")}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
+            activePupilTab === "present" ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block">
+              PRESENT
+            </span>
+            <div className="mt-1">
+              <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
+                {presentCount}
+              </span>
+              <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 mt-1.5">
+                <span>↗</span>
+                <span>{presentPercentage}%</span>
               </div>
             </div>
-          )
-        })}
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shrink-0">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+              <Check className="h-4 w-4 stroke-[3]" />
+            </div>
+          </div>
+        </button>
+
+        {/* ABSENT */}
+        <button
+          onClick={() => setActivePupilTab("absent")}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
+            activePupilTab === "absent" ? "border-rose-500 ring-2 ring-rose-500/20" : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-500 block">
+              ABSENT
+            </span>
+            <div className="mt-1">
+              <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
+                {absentCount}
+              </span>
+              <div className="flex items-center gap-1 text-xs font-bold text-rose-500 mt-1.5">
+                <span>↗</span>
+                <span>{absentPercentage}%</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 shrink-0">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs">
+              <X className="h-4 w-4 stroke-[3]" />
+            </div>
+          </div>
+        </button>
+
+        {/* LATE */}
+        <button
+          onClick={() => setActivePupilTab("late")}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
+            activePupilTab === "late" ? "border-amber-500 ring-2 ring-amber-500/20" : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 block">
+              LATE
+            </span>
+            <div className="mt-1">
+              <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
+                {lateCount}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium mt-1.5 block">
+                {totalStudents > 0 ? ((lateCount / totalStudents) * 100).toFixed(0) : "0"}% delay
+              </span>
+            </div>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 shrink-0">
+            <Timer className="h-6 w-6" />
+          </div>
+        </button>
+
       </div>
 
-      {/* Centralized Attendance Table */}
-      <div className="w-full rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
+      {/* 3. Main Dashboard Layout (Left ~7 Cols, Right ~5 Cols) */}
+      <div className="grid gap-6 lg:grid-cols-12">
         
-        {/* Table Header Controls */}
-        <div className="p-5 border-b border-border bg-[#FAFBFD] dark:bg-neutral/5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <Activity className="h-4.5 w-4.5 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-primary dark:text-foreground">Attendance Logs</h2>
+        {/* LEFT COLUMN: Today's Class, Pupils Overview, Quote of the Day */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* Card: Today's Class */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shrink-0">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-neutral leading-snug">
+                    Today's Class
+                  </h3>
+                  <p className="text-xs font-bold text-purple-600">
+                    {currentSection ? `${currentSection.year_level} - ${currentSection.section_name}` : "Kindergarten - Section A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-600 border border-amber-200/60">
+                <School className="h-3.5 w-3.5" />
+                <span>Activity Room 1</span>
+              </div>
+            </div>
+
+            {/* 4 Metadata Columns */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-2xl bg-tertiary/25 border border-border/40">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  GRADE LEVEL
+                </span>
+                <span className="text-xs font-extrabold text-neutral block mt-1">
+                  {currentSection?.year_level || "Kindergarten"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  SECTION
+                </span>
+                <span className="text-xs font-extrabold text-neutral block mt-1">
+                  {currentSection?.section_name || "Section A"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  ROOM
+                </span>
+                <span className="text-xs font-extrabold text-neutral block mt-1">
+                  Room 1 (Ground Flr)
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  ADVISER
+                </span>
+                <span className="text-xs font-extrabold text-neutral block mt-1 truncate">
+                  {currentSection?.teacher?.name || displayName}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Status Filter Tabs */}
-          <div className="flex items-center gap-1 bg-tertiary/40 p-1 rounded-xl border border-border">
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-                activeTab === "all" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-neutral bg-transparent"
-              }`}
-            >
-              All ({attendanceRoster.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("present")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-                activeTab === "present" ? "bg-emerald-600 text-white shadow-sm" : "text-muted-foreground hover:text-neutral bg-transparent"
-              }`}
-            >
-              Present ({presentCount})
-            </button>
-            <button
-              onClick={() => setActiveTab("checked_out")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-                activeTab === "checked_out" ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground hover:text-neutral bg-transparent"
-              }`}
-            >
-              Checked Out ({checkedOutCount})
-            </button>
-            <button
-              onClick={() => setActiveTab("absent")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-                activeTab === "absent" ? "bg-amber-600 text-white shadow-sm" : "text-muted-foreground hover:text-neutral bg-transparent"
-              }`}
-            >
-              Absent ({absentCount})
-            </button>
-          </div>
-        </div>
+          {/* Card: Pupils Overview */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
+            
+            {/* Header row with View All link */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-rose-500" />
+                <h3 className="text-sm font-extrabold text-neutral">
+                  Pupils Overview
+                </h3>
+                <span className="text-xs font-bold text-muted-foreground ml-1">
+                  ({pupilsOverviewList.length})
+                </span>
+              </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border text-[10px] font-bold tracking-widest text-muted-foreground uppercase bg-tertiary/20">
-                <th className="p-4 pl-6">Student</th>
-                <th className="p-4">Class Section</th>
-                <th className="p-4">RFID Tag</th>
-                <th className="p-4">Time In</th>
-                <th className="p-4">Time Out</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Verified By</th>
-                <th className="p-4 pr-6 text-right">Guardian Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRoster.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-xs text-muted-foreground font-semibold">
-                    No student records matching current filter.
-                  </td>
-                </tr>
+              <div className="flex items-center gap-3">
+                {/* Search input */}
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search pupil..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-2 py-1 text-xs rounded-xl bg-tertiary/40 border border-border/70 focus:outline-none focus:border-primary w-28 sm:w-36 text-neutral"
+                  />
+                </div>
+
+                <Link 
+                  to={role === "admin" ? "/app/pupils" : "/app/my_students"} 
+                  className="text-xs font-extrabold text-primary hover:underline inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                >
+                  <span>View All</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Filter pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {(["all", "present", "late", "absent", "checked_out"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActivePupilTab(tab)}
+                  className={`px-2.5 py-1 rounded-lg font-bold border transition-colors capitalize text-[11px] cursor-pointer whitespace-nowrap ${
+                    activePupilTab === tab
+                      ? "bg-primary text-white border-primary"
+                      : "bg-tertiary/30 text-muted-foreground border-transparent hover:bg-tertiary/60"
+                  }`}
+                >
+                  {tab.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+
+            {/* Pupil Items List */}
+            <div className="divide-y divide-border/60 max-h-[380px] overflow-y-auto pr-1">
+              {pupilsOverviewList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground font-semibold">
+                  No pupils found matching current filters.
+                </div>
               ) : (
-                filteredRoster.map((student) => {
-                  const isCurrentlyPresent = (student.status === "Present" || student.status === "Checked In" || student.status === "Late") && student.timeOut === "--:--"
+                pupilsOverviewList.map((pupil) => {
+                  const isPresent = pupil.rawStatus === "Present" || pupil.rawStatus === "Late"
 
                   return (
-                    <tr key={student.id} className="border-b border-border hover:bg-tertiary/10 last:border-0">
-                      <td className="p-4 pl-6 flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold select-none shrink-0">
-                          {student.name.charAt(0)}
+                    <div 
+                      key={pupil.id} 
+                      onClick={() => setSelectedPupilModal(pupil.student)}
+                      className="py-3 flex items-center justify-between hover:bg-tertiary/20 px-2 rounded-xl transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-full font-bold text-xs shrink-0 ${pupil.avatarBg}`}>
+                          {pupil.initials}
                         </div>
-                        <span className="text-xs font-bold text-primary">{student.name}</span>
-                      </td>
-                      <td className="p-4 text-xs font-semibold text-muted-foreground">
-                        {student.sectionLabel}
-                      </td>
-                      <td className="p-4 text-xs font-mono text-muted-foreground font-semibold">
-                        {student.rfid}
-                      </td>
-                      <td className="p-4 text-xs font-semibold text-neutral">
-                        {student.timeIn}
-                      </td>
-                      <td className="p-4 text-xs font-semibold text-neutral">
-                        {student.timeOut}
-                      </td>
-                      <td className="p-4">
-                        {(student.status === "Present" || student.status === "Checked In") && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30">
-                            Present
-                          </span>
-                        )}
-                        {student.status === "Late" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30">
-                            Late
-                          </span>
-                        )}
-                        {student.status === "Checked Out" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/20 text-blue-600 border border-blue-100 dark:border-blue-900/30">
-                            Checked Out
-                          </span>
-                        )}
-                        {student.status === "Absent" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 dark:bg-red-950/20 text-red-600 border border-red-100 dark:border-red-900/30">
-                            Absent
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground font-semibold">
-                        {student.verifiedBy === "Guardian QR" ? (
-                          <span className="inline-flex items-center gap-1 text-primary font-bold">
-                            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                            Guardian QR
-                          </span>
-                        ) : (
-                          student.verifiedBy
-                        )}
-                      </td>
-                      <td className="p-4 pr-6 text-right">
-                        {isCurrentlyPresent ? (
-                          <button
-                            onClick={() => handleGenerateQr(student)}
-                            disabled={generatingStudentId === student.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all border-none cursor-pointer disabled:opacity-50"
-                          >
-                            <QrCode className="h-3.5 w-3.5" />
-                            <span>{generatingStudentId === student.id ? "Generating..." : "Generate QR"}</span>
-                          </button>
-                        ) : student.status === "Checked Out" ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-                            <UserCheck className="h-3.5 w-3.5" />
-                            Picked Up
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground font-semibold">N/A</span>
-                        )}
-                      </td>
-                    </tr>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-extrabold text-neutral leading-tight group-hover:text-primary transition-colors truncate">
+                            {pupil.name}
+                          </h4>
+                          <p className="text-[10px] font-semibold text-muted-foreground mt-0.5 truncate">
+                            {pupil.sectionLabel} {pupil.timeIn !== "--:--" ? `• In: ${pupil.timeIn}` : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[11px] font-bold border ${pupil.statusColor}`}>
+                          {pupil.status}
+                        </span>
+                      </div>
+                    </div>
                   )
                 })
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          {/* Card: Quote of the Day Banner */}
+          <div className="rounded-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white p-7 shadow-md relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="space-y-2 z-10 max-w-lg">
+              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/20 text-white backdrop-blur-md">
+                QUOTE OF THE DAY
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
+                Small steps today, big dreams tomorrow! 🌟
+              </h2>
+              <p className="text-xs text-white/90 font-medium leading-relaxed">
+                Kindergarten education lays the happiest foundations for lifelong curiosity and kindness.
+              </p>
+            </div>
+
+            <div className="z-10 shrink-0">
+              <Link
+                to="/app/attendance"
+                className="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-xs font-black bg-white text-indigo-600 shadow-sm hover:bg-white/90 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+              >
+                Open Attendance
+              </Link>
+            </div>
+          </div>
+
         </div>
+
+        {/* RIGHT COLUMN: Guardians Quick Contact & Recent Notifications */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Card: Guardians Quick Contact */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-sm font-extrabold text-neutral">
+                  Guardians Quick Contact
+                </h3>
+              </div>
+              <Link 
+                to={role === "admin" ? "/app/registration?tab=students" : "/app/my_students"} 
+                className="text-xs font-extrabold text-primary hover:underline transition-colors"
+              >
+                View All
+              </Link>
+            </div>
+
+            {/* Guardians List */}
+            <div className="divide-y divide-border/60">
+              {guardiansList.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground font-semibold">
+                  No registered guardians found.
+                </div>
+              ) : (
+                guardiansList.map((g) => (
+                  <div 
+                    key={g.id} 
+                    onClick={() => setSelectedGuardianModal({ guardian: g.rawGuardian, studentName: g.studentName })}
+                    className="py-3 flex items-center justify-between hover:bg-tertiary/20 px-2 rounded-xl transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-full font-bold text-xs shrink-0 ${g.avatarBg}`}>
+                        {g.initials}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-extrabold text-neutral leading-tight group-hover:text-primary transition-colors truncate">
+                          {g.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <a 
+                            href={`tel:${g.phone.replace(/\s+/g, '')}`} 
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors truncate"
+                          >
+                            <Phone className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                            <span>{g.phone}</span>
+                          </a>
+                          <button
+                            onClick={(e) => handleCopyPhone(g.phone, e)}
+                            title="Copy Phone"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
+                          >
+                            <Copy className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-tertiary/70 text-muted-foreground border border-border/60 shrink-0">
+                      {g.relation}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Card: Recent Notifications */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-sky-500" />
+                <h3 className="text-sm font-extrabold text-neutral">
+                  Recent Notifications
+                </h3>
+              </div>
+              <Link 
+                to="/app/attendance" 
+                className="text-xs font-extrabold text-primary hover:underline transition-colors"
+              >
+                View All
+              </Link>
+            </div>
+
+            {/* 3 Notification Cards */}
+            <div className="space-y-3">
+              {dynamicNotifications.map((notif) => {
+                if (notif.type === "pickup") {
+                  return (
+                    <div 
+                      key={notif.id} 
+                      className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 dark:bg-purple-950/20 dark:border-purple-900/30 flex items-start gap-3"
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        <UserCheck className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-bold text-neutral leading-snug">
+                          {notif.title}
+                        </h4>
+                        <p className="text-[10px] font-semibold text-muted-foreground mt-1">
+                          {notif.time}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (notif.type === "late") {
+                  return (
+                    <div 
+                      key={notif.id} 
+                      className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30 flex items-start gap-3"
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        <Timer className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-bold text-neutral leading-snug">
+                          {notif.title}
+                        </h4>
+                        <p className="text-[10px] font-semibold text-muted-foreground mt-1">
+                          {notif.time}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (notif.type === "announcement") {
+                  return (
+                    <div 
+                      key={notif.id} 
+                      className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30 flex items-start gap-3"
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        <Megaphone className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-bold text-neutral leading-snug">
+                          {notif.title}
+                        </h4>
+                        <p className="text-[10px] font-semibold text-muted-foreground mt-1">
+                          {notif.time}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div 
+                    key={notif.id} 
+                    className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30 flex items-start gap-3"
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-neutral leading-snug">
+                        {notif.title}
+                      </h4>
+                      <p className="text-[10px] font-semibold text-muted-foreground mt-1">
+                        {notif.time}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
-      {/* Guardian Checkout QR Code Modal */}
-      <GuardianQrModal
-        isOpen={qrModalState.isOpen}
-        onClose={() => setQrModalState(prev => ({ ...prev, isOpen: false }))}
-        student={qrModalState.student}
-        token={qrModalState.token}
-        expiresAt={qrModalState.expiresAt}
-        onCheckoutSuccess={() => {
-          fetchDashboardData()
-        }}
-      />
+      {/* Pupil Quick Actions & Detail Modal */}
+      {selectedPupilModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setSelectedPupilModal(null)}
+        >
+          <div 
+            className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-5 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary font-black text-sm">
+                  {selectedPupilModal.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-neutral">
+                    {selectedPupilModal.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    RFID: <span className="font-mono">{selectedPupilModal.rfid}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedPupilModal(null)}
+                className="p-1.5 rounded-full hover:bg-tertiary text-muted-foreground transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Attendance Status Today */}
+            {(() => {
+              const att = attendanceMap[selectedPupilModal.id]
+              const isPresent = att && (att.status === "Present" || att.status === "Late" || att.time_in) && !att.time_out
+              const isCheckedOut = att && att.time_out
+              const isAbsent = !att || att.status === "Absent"
+
+              return (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-tertiary/25 border border-border/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-muted-foreground">Today's Status:</span>
+                      {isPresent && (
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          {att.status === "Late" ? "Late" : "Present in Class"}
+                        </span>
+                      )}
+                      {isCheckedOut && (
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-blue-50 text-blue-600 border border-blue-100">
+                          Picked Up / Checked Out
+                        </span>
+                      )}
+                      {isAbsent && (
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-rose-50 text-rose-600 border border-rose-100">
+                          Absent (Not Arrived)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block text-[10px] font-bold">ARRIVAL:</span>
+                        <span className="font-bold text-neutral">
+                          {att?.time_in ? formatTime12h(att.time_in) : "Not Scanned"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px] font-bold">PICKUP:</span>
+                        <span className="font-bold text-neutral">
+                          {att?.time_out ? formatTime12h(att.time_out) : "--:--"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Registered Guardians for this pupil */}
+                  {selectedPupilModal.guardians && selectedPupilModal.guardians.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-extrabold text-neutral block">
+                        Guardian Contacts:
+                      </span>
+                      <div className="space-y-2">
+                        {selectedPupilModal.guardians.map((g, idx) => (
+                          <div 
+                            key={idx} 
+                            className="p-2.5 rounded-xl border border-border/70 flex items-center justify-between text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-neutral">{g.name} ({g.relation})</p>
+                              <p className="text-[11px] text-muted-foreground">{g.phone}</p>
+                            </div>
+                            <a 
+                              href={`tel:${g.phone.replace(/\s+/g, '')}`}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                            >
+                              <Phone className="h-3 w-3" />
+                              <span>Call</span>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Functional Actions */}
+                  <div className="pt-2 border-t border-border space-y-2">
+                    {isPresent && (
+                      <div>
+                        <button
+                          onClick={() => handleQuickCheckOut(selectedPupilModal)}
+                          disabled={isActionLoading}
+                          className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-black shadow-sm hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 border-none"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Check Out / Record Pickup</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {isAbsent && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleQuickCheckIn(selectedPupilModal, "Present")}
+                          disabled={isActionLoading}
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-sm hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 border-none"
+                        >
+                          <Check className="h-4 w-4" />
+                          <span>Mark Present</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickCheckIn(selectedPupilModal, "Late")}
+                          disabled={isActionLoading}
+                          className="w-full py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black shadow-sm hover:bg-amber-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 border-none"
+                        >
+                          <Timer className="h-4 w-4" />
+                          <span>Mark Late</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {isCheckedOut && (
+                      <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold text-center border border-blue-100">
+                        Student is checked out for today ({att?.verified_by || 'Verified'}).
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+          </div>
+        </div>
+      )}
+
+      {/* Guardian Detail Modal */}
+      {selectedGuardianModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setSelectedGuardianModal(null)}
+        >
+          <div 
+            className="w-full max-w-sm rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-base font-black text-neutral">Guardian Profile</h3>
+              </div>
+              <button
+                onClick={() => setSelectedGuardianModal(null)}
+                className="p-1 rounded-full hover:bg-tertiary text-muted-foreground transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-2xl bg-tertiary/25 border border-border/50 space-y-2">
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">FULL NAME:</span>
+                  <p className="font-extrabold text-neutral text-sm">{selectedGuardianModal.guardian.name}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">RELATIONSHIP:</span>
+                  <p className="font-bold text-neutral">{selectedGuardianModal.guardian.relation}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">STUDENT:</span>
+                  <p className="font-bold text-primary">{selectedGuardianModal.studentName}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">CONTACT NUMBER:</span>
+                  <p className="font-bold text-neutral font-mono">{selectedGuardianModal.guardian.phone}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <a
+                  href={`tel:${selectedGuardianModal.guardian.phone.replace(/\s+/g, '')}`}
+                  className="py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm hover:bg-emerald-700 transition-colors"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  <span>Call Guardian</span>
+                </a>
+                <button
+                  onClick={(e) => {
+                    handleCopyPhone(selectedGuardianModal.guardian.phone, e)
+                    setSelectedGuardianModal(null)
+                  }}
+                  className="py-2 rounded-xl border border-border bg-card text-neutral font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-tertiary transition-colors cursor-pointer"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>Copy Number</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
     </div>
   )
 }
 
 export default TeacherDashboard
-
-

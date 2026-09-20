@@ -383,15 +383,12 @@ export function Dashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}")
   const role = user.role || "admin"
 
-  if (role === "teacher") {
-    return <TeacherDashboard />
-  }
-
   if (role === "guardian") {
     return <GuardianDashboard />
   }
 
-  return <AdminDashboard />
+  // Teacher and Admin both receive the rich classroom dashboard
+  return <TeacherDashboard />
 }
 
 export default Dashboard

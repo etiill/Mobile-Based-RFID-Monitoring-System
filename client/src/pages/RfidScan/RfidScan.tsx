@@ -1150,7 +1150,7 @@ export function RfidScan() {
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground font-semibold">
-                    * RFID Readers exclusively record student arrivals. Student checkouts are completed via Guardian QR Code scan on the Teacher Dashboard.
+                    * RFID Readers record student arrivals at kindergarten gates and classroom check-ins.
                   </p>
                 </div>
 

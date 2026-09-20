@@ -94,7 +94,7 @@ export function MyStudents() {
       console.error("Failed to load data:", error)
       toast.add({
         title: "Error Loading Data",
-        description: "Could not fetch students list from the server.",
+        description: "Could not fetch pupils list from the server.",
         type: "error",
       })
     } finally {
@@ -209,7 +209,7 @@ export function MyStudents() {
         const response = await ApiHandler.put<Student>(`/students/${editingStudent.id}`, payload)
         setStudents(students.map(s => s.id === editingStudent.id ? response : s))
         toast.add({
-          title: "Student Updated",
+          title: "Pupil Updated",
           description: `${studentName}'s profile has been updated successfully.`,
           type: "success",
         })
@@ -217,7 +217,7 @@ export function MyStudents() {
       } catch (err: any) {
         toast.add({
           title: "Update Failed",
-          description: err.message || "Failed to update student details.",
+          description: err.message || "Failed to update pupil details.",
           type: "error",
         })
       }
@@ -227,7 +227,7 @@ export function MyStudents() {
         const response = await ApiHandler.post<Student>("/students", payload)
         setStudents([...students, response])
         toast.add({
-          title: "Student Registered",
+          title: "Pupil Registered",
           description: `${studentName} has been registered successfully.`,
           type: "success",
         })
@@ -235,7 +235,7 @@ export function MyStudents() {
       } catch (err: any) {
         toast.add({
           title: "Registration Failed",
-          description: err.message || "Failed to register student.",
+          description: err.message || "Failed to register pupil.",
           type: "error",
         })
       }
@@ -243,20 +243,20 @@ export function MyStudents() {
   }
 
   const handleDeleteStudent = async (id: string | number) => {
-    if (!confirm("Are you sure you want to delete this student record?")) return
+    if (!confirm("Are you sure you want to delete this pupil record?")) return
     try {
       await ApiHandler.delete(`/students/${id}`)
       setStudents(students.filter(s => s.id !== id))
       toast.add({
         title: "Record Deleted",
-        description: "Student record deleted successfully.",
+        description: "Pupil record deleted successfully.",
         type: "success",
       })
       handleCloseStudentModal()
     } catch (err: any) {
       toast.add({
         title: "Delete Failed",
-        description: err.message || "Failed to delete student record.",
+        description: err.message || "Failed to delete pupil record.",
         type: "error",
       })
     }
@@ -405,7 +405,7 @@ export function MyStudents() {
       {/* Header Banner */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">My Assigned Students</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-primary">Pupils</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Overview of pupil lists, class sections, and emergency guardian contacts assigned to your workspace.
           </p>
@@ -417,7 +417,7 @@ export function MyStudents() {
             className="flex items-center justify-center gap-2 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] px-5 py-3 text-xs font-bold text-white shadow-sm active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
           >
             <UserPlus className="h-4 w-4" />
-            <span>Add Student</span>
+            <span>Add Pupils</span>
           </button>
         )}
       </div>
@@ -554,7 +554,7 @@ export function MyStudents() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">
-                {editingStudent ? "Edit Student Details" : "Register Student to Class"}
+                {editingStudent ? "Edit Pupil Details" : "Add Pupils"}
               </h2>
               <button 
                 onClick={handleCloseStudentModal}
@@ -613,7 +613,7 @@ export function MyStudents() {
                     onClick={() => handleDeleteStudent(editingStudent.id)}
                     className="flex-1 py-2.5 rounded-lg border border-destructive text-xs font-bold bg-transparent text-destructive hover:bg-destructive/10 transition-all cursor-pointer"
                   >
-                    Delete Student
+                    Delete Pupil
                   </button>
                 )}
                 <button
@@ -844,7 +844,7 @@ export function MyStudents() {
                 </h4>
                 {viewingPupil.guardians.length === 0 ? (
                   <div className="p-4 border border-dashed border-border rounded-xl text-center text-muted-foreground">
-                    No emergency guardian contact details registered for this student.
+                    No emergency guardian contact details registered for this pupil.
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
