@@ -10,7 +10,10 @@ import {
   Users, 
   CreditCard,
   UserCheck,
-  Search
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -113,9 +116,57 @@ export function Registration() {
     .filter((student) =>
       student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.rfid.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.grade.toLowerCase().includes(searchQuery.toLowerCase())
+      student.grade.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.guardians.some(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
     )
     .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Pagination State for Guardian Registration (Limit: 10 per page)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isPageLoading, setIsPageLoading] = useState(false)
+  const itemsPerPage = 10
+
+  // Reset page when search query or activeTab changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, activeTab])
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedStudents = filteredStudents.slice(startIndex, startIndex + itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return
+    setIsPageLoading(true)
+    setCurrentPage(newPage)
+    setTimeout(() => {
+      setIsPageLoading(false)
+    }, 250)
+  }
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages)
+      }
+    }
+    return pages
+  }
 
   // Modal State Variables
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false)
@@ -681,21 +732,6 @@ export function Registration() {
         </div>
         
         {/* Dynamic CTA */}
-        {activeTab === "students" && (
-          <button
-            onClick={() => {
-              setEditingStudentId(null)
-              setStudentName("")
-              setStudentRfid("")
-              setStudentSectionId("")
-              setIsStudentModalOpen(true)
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Add Student</span>
-          </button>
-        )}
         {activeTab === "teachers" && (
           <button
             onClick={() => setIsTeacherModalOpen(true)}
@@ -746,141 +782,255 @@ export function Registration() {
             )}
           </div>
 
-          {/* Main List of Student Cards */}
+          {/* Main Table for Guardian Registration */}
           {isLoadingStudents ? (
             <div className="min-h-[350px] flex items-center justify-center bg-card border border-border rounded-2xl p-8">
               <LoadingScreen fullScreen={false} />
             </div>
           ) : (
-            <div className="space-y-6">
-              {filteredStudents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 border border-dashed border-border rounded-2xl bg-card text-center space-y-3">
-                <Search className="h-10 w-10 text-muted-foreground opacity-40 animate-pulse" />
-                <h3 className="text-sm font-bold text-primary">No search results</h3>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  We couldn't find any students matching "{searchQuery}". Try searching for another name, grade, or RFID code.
-                </p>
-              </div>
-            ) : (
-              filteredStudents.map((student) => (
-              <div key={student.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
-                
-                {/* Student Info Bar */}
-                <div className="flex items-center justify-between p-5 border-b border-border">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary">
-                      <span className="text-base font-bold select-none">
-                        {student.name.charAt(0)}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-primary">{student.name}</h3>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground font-semibold">
-                          {student.grade}
-                        </span>
-                        {student.section ? (
-                          <span className="rounded-full bg-blue-50 dark:bg-blue-950/20 text-blue-600 border border-blue-100 dark:border-blue-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
-                            Section: {student.section.section_name}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
-                            No Section
-                          </span>
-                        )}
-                        {student.section?.teacher && (
-                          <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 px-2 py-0.5 text-[9px] font-bold select-none uppercase">
-                            Teacher: {student.section.teacher.name}
-                          </span>
-                        )}
-                      </div>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="overflow-x-auto overflow-y-auto max-h-[520px] relative scrollbar-thin">
+                {isPageLoading && (
+                  <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] flex items-center justify-center z-30 transition-all">
+                    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 shadow-md">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-xs font-bold text-primary">Loading page {currentPage}...</span>
                     </div>
                   </div>
-
-                  {/* Tag & Actions */}
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 rounded-full border border-border bg-tertiary px-3.5 py-1 text-[11px] font-bold text-muted-foreground select-none">
-                      <CreditCard className="h-3.5 w-3.5" />
-                      <span>{student.rfid}</span>
-                    </div>
-                    <button
-                      onClick={() => handleEditStudentClick(student)}
-                      className="p-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
-                      title="Edit Student"
-                    >
-                      <Pencil className="h-4.5 w-4.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteStudent(student.id)}
-                      className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Guardians Drawer */}
-                <div className="bg-[#FAFBFD] dark:bg-neutral/5 p-5">
-                  <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                    Authorized Guardians
-                  </span>
-                  
-                  <div className="grid gap-4 mt-3 sm:grid-cols-2 md:grid-cols-3">
-                    {student.guardians.map((guardian, gIdx) => (
-                      <div key={gIdx} className="group relative rounded-xl border border-border bg-white dark:bg-card p-4 shadow-sm flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                            <Users className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-neutral">{guardian.name}</h4>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {guardian.relation} • {guardian.phone}
+                )}
+                <table className="w-full border-collapse text-left text-xs font-sans">
+                  <thead className="sticky top-0 z-20 bg-[#FAFBFD] dark:bg-card border-b border-border shadow-xs backdrop-blur-md">
+                    <tr className="border-b border-border bg-tertiary/40 text-muted-foreground font-bold select-none uppercase tracking-wider">
+                      <th className="px-6 py-4 font-bold bg-inherit">Pupil</th>
+                      <th className="px-6 py-4 font-bold bg-inherit">Class & Section</th>
+                      <th className="px-6 py-4 font-bold bg-inherit">RFID Tag</th>
+                      <th className="px-6 py-4 font-bold bg-inherit min-w-[320px]">Authorized Guardians</th>
+                      <th className="px-6 py-4 font-bold text-center bg-inherit">Status</th>
+                      <th className="px-6 py-4 font-bold text-center bg-inherit">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border font-medium text-neutral">
+                    {filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground font-semibold">
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Search className="h-8 w-8 text-muted-foreground opacity-40 animate-pulse" />
+                            <h3 className="text-sm font-bold text-primary">No search results</h3>
+                            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                              We couldn't find any students matching "{searchQuery}". Try searching for another name, grade, or RFID code.
                             </p>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-600 select-none">
-                            AUTHORIZED
-                          </span>
-                          <button 
-                            onClick={() => guardian.id && handleDeleteGuardian(student.id, guardian.id)}
-                            className="hidden group-hover:flex p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors border-none bg-transparent text-muted-foreground cursor-pointer"
-                            title="Remove Guardian"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedStudents.map((student) => {
+                        const hasGuardians = student.guardians && student.guardians.length > 0
 
-                    {/* Add Guardian Trigger */}
-                    <button
-                      onClick={() => {
-                        setSelectedStudentId(student.id)
-                        setIsGuardianModalOpen(true)
-                      }}
-                      className="flex h-[70px] items-center justify-center gap-2.5 rounded-xl border border-dashed border-border hover:border-primary/40 bg-white/50 dark:bg-card/50 text-xs font-bold text-muted-foreground hover:text-primary transition-all cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Guardian</span>
-                    </button>
-                  </div>
+                        return (
+                          <tr key={student.id} className="hover:bg-tertiary/10 transition-colors">
+                            {/* Pupil Column */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary font-bold">
+                                  {student.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-primary text-sm">{student.name}</div>
+                                  <div className="text-[10px] text-muted-foreground font-semibold">ID: S{String(student.id).padStart(3, "0")}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Class & Section Column */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-bold text-neutral">
+                                  {student.section 
+                                    ? `${student.section.year_level} - ${student.section.section_name}`
+                                    : student.grade || "Unassigned"
+                                  }
+                                </span>
+                                {student.section?.teacher && (
+                                  <span className="text-[10px] text-emerald-600 font-bold">
+                                    Teacher: {student.section.teacher.name}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* RFID Tag Column */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-tertiary px-3 py-1 text-[11px] font-bold text-muted-foreground select-none">
+                                <CreditCard className="h-3 w-3" />
+                                <span>{student.rfid}</span>
+                              </div>
+                            </td>
+
+                            {/* Authorized Guardians Column */}
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {hasGuardians ? (
+                                  student.guardians.map((guardian, gIdx) => (
+                                    <div
+                                      key={gIdx}
+                                      className="group/item inline-flex items-center gap-2 rounded-xl border border-border bg-white dark:bg-card px-3 py-1.5 shadow-xs transition-all hover:border-primary/30"
+                                    >
+                                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                                        <Users className="h-3 w-3" />
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-neutral leading-tight">{guardian.name}</span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {guardian.relation} • {guardian.phone}
+                                        </span>
+                                      </div>
+                                      <button
+                                        onClick={() => guardian.id && handleDeleteGuardian(student.id, guardian.id)}
+                                        className="p-1 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer ml-1"
+                                        title="Remove Guardian"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-muted-foreground italic mr-2">
+                                    No guardian linked
+                                  </span>
+                                )}
+                                
+                                <button
+                                  onClick={() => {
+                                    setSelectedStudentId(student.id)
+                                    setIsGuardianModalOpen(true)
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary transition-all cursor-pointer whitespace-nowrap"
+                                  title="Add Authorized Guardian"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  <span>Add Guardian</span>
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Status Column */}
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              {hasGuardians ? (
+                                <span className="inline-flex rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
+                                  Authorized ({student.guardians.length})
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
+                                  No Guardian
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Actions Column */}
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleEditStudentClick(student)}
+                                  className="p-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
+                                  title="Edit Student"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteStudent(student.id)}
+                                  className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
+                                  title="Delete Student"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Pagination Footer */}
+              <div className="p-4 px-6 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs font-semibold bg-tertiary/10">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span>
+                    Showing{" "}
+                    <strong className="text-primary font-bold">
+                      {filteredStudents.length === 0 ? 0 : startIndex + 1}
+                    </strong>
+                    {" "}-{" "}
+                    <strong className="text-primary font-bold">
+                      {Math.min(startIndex + itemsPerPage, filteredStudents.length)}
+                    </strong>
+                    {" "}of{" "}
+                    <strong className="text-primary font-bold">
+                      {filteredStudents.length}
+                    </strong>
+                    {" "}pupils
+                  </span>
+                  <span className="inline-flex items-center rounded-md bg-tertiary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                    Limit: 10 / page
+                  </span>
                 </div>
 
-              </div>
-                )))}
-              </div>
-            )}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1 self-center sm:self-auto">
+                    <button
+                      disabled={currentPage === 1 || isPageLoading}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Previous Page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
 
-          {/* Pagination Load Button */}
-          <div className="flex justify-center pt-2">
-            <button className="flex items-center gap-2 rounded-xl border border-primary px-6 py-3 text-xs font-bold text-primary bg-transparent hover:bg-primary/5 transition-all cursor-pointer">
-              <ChevronDown className="h-4 w-4" />
-              <span>Load More Students</span>
-            </button>
-          </div>
+                    {getPageNumbers().map((page, idx) => {
+                      if (page === "...") {
+                        return (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="h-8 w-8 flex items-center justify-center text-muted-foreground font-bold select-none text-xs"
+                          >
+                            ...
+                          </span>
+                        )
+                      }
+
+                      const pageNum = Number(page)
+                      const isActive = pageNum === currentPage
+
+                      return (
+                        <button
+                          key={pageNum}
+                          disabled={isPageLoading}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                            isActive
+                              ? "bg-primary text-white border-none shadow-xs"
+                              : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+
+                    <button
+                      disabled={currentPage === totalPages || isPageLoading}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Next Page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       ) : activeTab === "teachers" ? (
         <>
@@ -1021,7 +1171,7 @@ export function Registration() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">
-                {editingStudentId ? "Edit Student Details" : "Register New Student"}
+                {editingStudentId ? "Edit Student Details" : "Register New Pupils"}
               </h2>
               <button 
                 onClick={handleCloseStudentModal}
@@ -1033,7 +1183,7 @@ export function Registration() {
             
             <form onSubmit={handleStudentSubmit} className="space-y-4 mt-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-neutral/80">Student Name</label>
+                <label className="text-xs font-bold text-neutral/80">Pupils Name</label>
                 <input
                   type="text"
                   value={studentName}

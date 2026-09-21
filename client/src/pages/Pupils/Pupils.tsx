@@ -9,7 +9,11 @@ import {
   User, 
   Users, 
   Trash2,
-  Filter
+  Filter,
+  UserPlus,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -116,6 +120,53 @@ export function Pupils() {
 
     return matchesSearch && matchesClass && matchesTeacher && matchesStatus
   })
+
+  // Pagination State (Limit: 10 per page)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isPageLoading, setIsPageLoading] = useState(false)
+  const itemsPerPage = 10
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, classFilter, teacherFilter, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedStudents = filteredStudents.slice(startIndex, startIndex + itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return
+    setIsPageLoading(true)
+    setCurrentPage(newPage)
+    setTimeout(() => {
+      setIsPageLoading(false)
+    }, 250)
+  }
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages)
+      }
+    }
+    return pages
+  }
 
   // Modal Handlers
   const handleOpenAdd = () => {
@@ -261,6 +312,13 @@ export function Pupils() {
             View, search, filter class sections, and manage active pupils and their authorized guardians.
           </p>
         </div>
+        <button
+          onClick={handleOpenAdd}
+          className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-xs font-bold text-neutral shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer border-none shrink-0"
+        >
+          <UserPlus className="h-4 w-4" />
+          <span>Add Pupils</span>
+        </button>
       </div>
 
       {/* Filter Toolbar (matches layout of screen screenshot) */}
@@ -334,18 +392,26 @@ export function Pupils() {
       </div>
 
       {/* Pupils List Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="overflow-x-auto overflow-y-auto max-h-[520px] relative scrollbar-thin">
+          {isPageLoading && (
+            <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] flex items-center justify-center z-30 transition-all">
+              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 shadow-md">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-xs font-bold text-primary">Loading page {currentPage}...</span>
+              </div>
+            </div>
+          )}
           <table className="w-full border-collapse text-left text-xs font-sans">
-            <thead>
-              <tr className="border-b border-border bg-tertiary/30 text-muted-foreground font-bold select-none uppercase tracking-wider">
-                <th className="px-6 py-4 font-bold">ID</th>
-                <th className="px-6 py-4 font-bold">Pupil</th>
-                <th className="px-6 py-4 font-bold">Class</th>
-                <th className="px-6 py-4 font-bold">RFID</th>
-                <th className="px-6 py-4 font-bold">Guardian</th>
-                <th className="px-6 py-4 font-bold">Status</th>
-                <th className="px-6 py-4 font-bold text-center">Actions</th>
+            <thead className="sticky top-0 z-20 bg-[#FAFBFD] dark:bg-card border-b border-border shadow-xs backdrop-blur-md">
+              <tr className="border-b border-border bg-tertiary/40 text-muted-foreground font-bold select-none uppercase tracking-wider">
+                <th className="px-6 py-4 font-bold bg-inherit">ID</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Pupil</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Class</th>
+                <th className="px-6 py-4 font-bold bg-inherit">RFID</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Guardian</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Status</th>
+                <th className="px-6 py-4 font-bold text-center bg-inherit">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-medium text-neutral">
@@ -359,7 +425,7 @@ export function Pupils() {
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((student) => {
+                paginatedStudents.map((student) => {
                   const formattedId = `S${String(student.id).padStart(3, "0")}`
                   const primaryGuardianName = student.guardians[0]?.name || "None"
                   const classInfo = student.section 
@@ -412,6 +478,83 @@ export function Pupils() {
             </tbody>
           </table>
         </div>
+
+        {/* Table Pagination Footer */}
+        <div className="p-4 px-6 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs font-semibold bg-tertiary/10">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>
+              Showing{" "}
+              <strong className="text-primary font-bold">
+                {filteredStudents.length === 0 ? 0 : startIndex + 1}
+              </strong>
+              {" "}-{" "}
+              <strong className="text-primary font-bold">
+                {Math.min(startIndex + itemsPerPage, filteredStudents.length)}
+              </strong>
+              {" "}of{" "}
+              <strong className="text-primary font-bold">
+                {filteredStudents.length}
+              </strong>
+              {" "}pupils
+            </span>
+            <span className="inline-flex items-center rounded-md bg-tertiary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+              Limit: 10 / page
+            </span>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 self-center sm:self-auto">
+              <button
+                disabled={currentPage === 1 || isPageLoading}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Previous Page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              {getPageNumbers().map((page, idx) => {
+                if (page === "...") {
+                  return (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="h-8 w-8 flex items-center justify-center text-muted-foreground font-bold select-none text-xs"
+                    >
+                      ...
+                    </span>
+                  )
+                }
+
+                const pageNum = Number(page)
+                const isActive = pageNum === currentPage
+
+                return (
+                  <button
+                    key={pageNum}
+                    disabled={isPageLoading}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-primary text-white border-none shadow-xs"
+                        : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+
+              <button
+                disabled={currentPage === totalPages || isPageLoading}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Next Page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* MODAL: ADD/EDIT PUPIL */}
@@ -420,7 +563,7 @@ export function Pupils() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">
-                Edit Pupil Details
+                {editingPupil ? "Edit Pupil Details" : "Add Pupils"}
               </h2>
               <button 
                 onClick={handleCloseAddEdit}
@@ -493,7 +636,7 @@ export function Pupils() {
                   type="submit"
                   className="flex-1 py-2.5 rounded-lg bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none font-sans"
                 >
-                  Save Changes
+                  {editingPupil ? "Save Changes" : "Save Pupil"}
                 </button>
               </div>
             </form>

@@ -193,7 +193,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   Kindergarten
                 </span>
                 <span className="text-[9px] tracking-widest text-secondary font-bold uppercase mt-1.5 leading-none">
-                  RFID Monitor
+                  RFID Monitoring System
                 </span>
               </div>
             </div>
@@ -218,14 +218,6 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         {/* Navigation Links */}
         <div className="flex flex-col flex-1 justify-between overflow-y-auto">
           <nav className="p-4 space-y-1">
-            <p
-              className={cn(
-                "text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4 px-2",
-                isCollapsed && "text-center"
-              )}
-            >
-              {isCollapsed ? "---" : "Main Menu"}
-            </p>
             {filteredRoutes.map((item) => {
               const isActive = isItemActive(item.path)
               return (

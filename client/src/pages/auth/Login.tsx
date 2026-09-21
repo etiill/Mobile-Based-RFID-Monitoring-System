@@ -102,9 +102,9 @@ export function Login() {
                   alt="Filamer Logo" 
                   className="h-16 w-16 object-contain mb-2"
                 />
-                <h1 className="text-2xl font-bold tracking-tight text-primary">RFID Monitor</h1>
+                <h1 className="text-1xl font-bold tracking-tight text-primary">KINDERGARTEN MONITORING SYSTEM</h1>
                 <p className="text-[11px] text-muted-foreground font-bold tracking-wider uppercase mt-1">
-                  Kindergarten Safety First
+                  Safety First
                 </p>
               </div>
 
@@ -200,10 +200,8 @@ export function Login() {
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-
               {/* Text Info */}
               <div className="p-4 pt-5">
-                <h3 className="text-base font-bold text-primary">Real-time Monitoring</h3>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Instant notifications for every student entry and exit. Security you can trust.
                 </p>
