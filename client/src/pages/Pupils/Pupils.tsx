@@ -308,9 +308,6 @@ export function Pupils() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">Pupil Management</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            View, search, filter class sections, and manage active pupils and their authorized guardians.
-          </p>
         </div>
         <button
           onClick={handleOpenAdd}

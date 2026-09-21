@@ -695,16 +695,6 @@ export function Registration() {
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
       
-      {/* Back to selector link */}
-      <div className="pt-2">
-        <button
-          onClick={() => setActiveTab(null)}
-          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-primary transition-all bg-transparent border-none cursor-pointer p-0"
-        >
-          &larr; Back to Modules
-        </button>
-      </div>
-      
       {/* Header Panel */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
@@ -720,14 +710,6 @@ export function Registration() {
                   : "Year Level & Section Registration"
               }
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {activeTab === "students" 
-                ? "Step 2: Register students and authorized guardians to ensure secure entry and exit protocols."
-                : activeTab === "teachers"
-                  ? "Manage and register teacher accounts to access the daily attendance workspaces."
-                  : "Manage year levels, sections, and assign class teachers for each class."
-              }
-            </p>
           </div>
         </div>
         
