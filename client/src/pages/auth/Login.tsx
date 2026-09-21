@@ -200,12 +200,6 @@ export function Login() {
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-              {/* Text Info */}
-              <div className="p-4 pt-5">
-                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  Instant notifications for every student entry and exit. Security you can trust.
-                </p>
-              </div>
             </div>
           </div>
 

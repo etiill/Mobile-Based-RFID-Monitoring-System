@@ -31,7 +31,7 @@ export function Navbar() {
     .toUpperCase()
     .substring(0, 2)
 
-  const roleLabel = role === "teacher" ? "Class Teacher" : role === "guardian" ? "Parent/Guardian" : "System Root"
+  const roleLabel = role === "teacher" ? "Class Teacher" : role === "guardian" ? "Parent/Guardian" : "System"
 
   const handleLogout = async () => {
     try {
