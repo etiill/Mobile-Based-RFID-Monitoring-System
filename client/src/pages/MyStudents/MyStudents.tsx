@@ -13,7 +13,10 @@ import {
   Pencil,
   Trash2,
   UserPlus,
-  UserCheck
+  UserCheck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -121,6 +124,53 @@ export function MyStudents() {
 
     return isAssignedToTeacher && matchesSearch
   })
+
+  // Pagination State for My Students (Limit: 10 per page)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isPageLoading, setIsPageLoading] = useState(false)
+  const itemsPerPage = 10
+
+  // Reset page when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(myStudents.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedStudents = myStudents.slice(startIndex, startIndex + itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return
+    setIsPageLoading(true)
+    setCurrentPage(newPage)
+    setTimeout(() => {
+      setIsPageLoading(false)
+    }, 250)
+  }
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages)
+      }
+    }
+    return pages
+  }
 
   // Password strength logic
   const getPasswordStrength = (password: string) => {
@@ -406,9 +456,6 @@ export function MyStudents() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">Pupils</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Overview of pupil lists, class sections, and emergency guardian contacts assigned to your workspace.
-          </p>
         </div>
         
         {teacherSections.length > 0 && (
@@ -468,17 +515,25 @@ export function MyStudents() {
       </div>
 
       {/* Pupil Table list */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="overflow-x-auto overflow-y-auto max-h-[520px] relative scrollbar-thin">
+          {isPageLoading && (
+            <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] flex items-center justify-center z-30 transition-all">
+              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 shadow-md">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-xs font-bold text-primary">Loading page {currentPage}...</span>
+              </div>
+            </div>
+          )}
           <table className="w-full border-collapse text-left text-xs font-sans">
-            <thead>
-              <tr className="border-b border-border bg-tertiary/30 text-muted-foreground font-bold select-none uppercase tracking-wider">
-                <th className="px-6 py-4 font-bold">ID</th>
-                <th className="px-6 py-4 font-bold">Pupil</th>
-                <th className="px-6 py-4 font-bold">Class Section</th>
-                <th className="px-6 py-4 font-bold">RFID Code</th>
-                <th className="px-6 py-4 font-bold">Primary Guardian</th>
-                <th className="px-6 py-4 font-bold text-center">Actions</th>
+            <thead className="sticky top-0 z-20 bg-[#FAFBFD] dark:bg-card border-b border-border shadow-xs backdrop-blur-md">
+              <tr className="border-b border-border bg-tertiary/40 text-muted-foreground font-bold select-none uppercase tracking-wider">
+                <th className="px-6 py-4 font-bold bg-inherit">ID</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Pupil</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Class Section</th>
+                <th className="px-6 py-4 font-bold bg-inherit">RFID Code</th>
+                <th className="px-6 py-4 font-bold bg-inherit">Primary Guardian</th>
+                <th className="px-6 py-4 font-bold text-center bg-inherit">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-medium text-neutral">
@@ -492,7 +547,7 @@ export function MyStudents() {
                   </td>
                 </tr>
               ) : (
-                myStudents.map((student) => {
+                paginatedStudents.map((student) => {
                   const formattedId = `S${String(student.id).padStart(3, "0")}`
                   const primaryGuardianName = student.guardians[0]?.name || "None"
                   const classInfo = student.section 
@@ -545,6 +600,83 @@ export function MyStudents() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Pagination Footer */}
+        <div className="p-4 px-6 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs font-semibold bg-tertiary/10">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>
+              Showing{" "}
+              <strong className="text-primary font-bold">
+                {myStudents.length === 0 ? 0 : startIndex + 1}
+              </strong>
+              {" "}-{" "}
+              <strong className="text-primary font-bold">
+                {Math.min(startIndex + itemsPerPage, myStudents.length)}
+              </strong>
+              {" "}of{" "}
+              <strong className="text-primary font-bold">
+                {myStudents.length}
+              </strong>
+              {" "}pupils
+            </span>
+            <span className="inline-flex items-center rounded-md bg-tertiary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+              Limit: 10 / page
+            </span>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 self-center sm:self-auto">
+              <button
+                disabled={currentPage === 1 || isPageLoading}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Previous Page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              {getPageNumbers().map((page, idx) => {
+                if (page === "...") {
+                  return (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="h-8 w-8 flex items-center justify-center text-muted-foreground font-bold select-none text-xs"
+                    >
+                      ...
+                    </span>
+                  )
+                }
+
+                const pageNum = Number(page)
+                const isActive = pageNum === currentPage
+
+                return (
+                  <button
+                    key={pageNum}
+                    disabled={isPageLoading}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-primary text-white border-none shadow-xs"
+                        : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+
+              <button
+                disabled={currentPage === totalPages || isPageLoading}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="p-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:bg-tertiary hover:text-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Next Page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

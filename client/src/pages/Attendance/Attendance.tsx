@@ -392,9 +392,6 @@ export function Attendance() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">Attendance Records</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-semibold">
-            View and manage student attendance history for <span className="text-primary font-bold">{activeSectionLabel}</span>
-          </p>
         </div>
         
         <div className="flex items-center gap-3">
