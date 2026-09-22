@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { 
   Sun, 
+  Moon,
   Search, 
   Calendar as CalendarIcon, 
   ShieldCheck, 
@@ -115,12 +116,16 @@ export function PickUpLogs() {
   const role = (user.role || "teacher").toLowerCase()
   const displayName = user.name || (role === "admin" ? "Administrator" : "Ms. Garcia")
 
-  // Greeting dynamic based on time of day
-  const getGreeting = () => {
+  // Greeting dynamic based on time of day with matching daytime/evening status
+  const getTimeBasedInfo = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return "Good Morning"
-    if (hour < 18) return "Good Afternoon"
-    return "Good Evening"
+    if (hour < 12) {
+      return { greeting: "Good Morning", isDaytime: true }
+    }
+    if (hour < 18) {
+      return { greeting: "Good Afternoon", isDaytime: true }
+    }
+    return { greeting: "Good Evening", isDaytime: false }
   }
 
   // Format military time to standard 12-hr AM/PM format
@@ -281,6 +286,27 @@ export function PickUpLogs() {
           allGuardians: guardians
         }
       })
+      .sort((a, b) => {
+        const getSortScore = (timeStr: string, id: number) => {
+          if (!timeStr || timeStr === "--:--") return -1
+          try {
+            if (timeStr.includes(":")) {
+              const parts = timeStr.replace(/(AM|PM|am|pm)/g, "").trim().split(":")
+              let h = parseInt(parts[0], 10) || 0
+              const m = parseInt(parts[1], 10) || 0
+              const s = parseInt(parts[2], 10) || 0
+              if (timeStr.toLowerCase().includes("pm") && h < 12) h += 12
+              if (timeStr.toLowerCase().includes("am") && h === 12) h = 0
+              return h * 3600 + m * 60 + s
+            }
+          } catch {}
+          return id
+        }
+        const scoreA = getSortScore(a.rawTimeOut, Number(a.attendanceId))
+        const scoreB = getSortScore(b.rawTimeOut, Number(b.attendanceId))
+        if (scoreA !== scoreB) return scoreB - scoreA
+        return Number(b.attendanceId) - Number(a.attendanceId)
+      })
   }, [attendances, students])
 
   // Filtered pickup list based on search, section, and verification type
@@ -397,13 +423,19 @@ export function PickUpLogs() {
       {/* 1. Top Header Greeting & Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
-            <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
-          </div>
+          {getTimeBasedInfo().isDaytime ? (
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
+              <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
+            </div>
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/30 shadow-xs shrink-0">
+              <Moon className="h-6 w-6 fill-indigo-400 text-indigo-500" />
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
-                {getGreeting()}, {displayName}!
+                {getTimeBasedInfo().greeting}, {displayName}!
               </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-50 text-sky-600 border border-sky-200/60">
                 Active

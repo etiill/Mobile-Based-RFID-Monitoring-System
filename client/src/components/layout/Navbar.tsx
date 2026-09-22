@@ -89,18 +89,21 @@ export function Navbar() {
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 mt-1">
-              {(role === "admin" || role === "teacher") && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => navigate(PATHS.APP.PROFILE)}
-                    className="cursor-pointer flex items-center gap-2"
-                  >
-                    <UserRound className="h-4 w-4" />
-                    <span>Teacher Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  if (role === "guardian") {
+                    navigate("/app/dashboard?tab=profile")
+                  } else {
+                    navigate(PATHS.APP.PROFILE)
+                  }
+                }}
+                className="cursor-pointer flex items-center gap-2"
+              >
+                <UserRound className="h-4 w-4" />
+                <span>{role === "admin" ? "Admin Profile" : role === "teacher" ? "Teacher Profile" : "Guardian Profile"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer flex items-center gap-2"

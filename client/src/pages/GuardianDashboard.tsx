@@ -646,14 +646,6 @@ export function GuardianDashboard() {
               Monitoring safety, campus movement, and real-time attendance for your child <strong className="text-primary">{activeChild.name}</strong>.
             </p>
           </div>
-
-          {/* Quick Date */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-tertiary/40 border border-border text-xs font-bold text-muted-foreground">
-              <Calendar className="h-4 w-4 text-primary" />
-              <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -991,7 +983,7 @@ export function GuardianDashboard() {
         <div className="space-y-6 animate-fade-in">
           
           {/* Summary KPI Dashboard */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             
             <div className="p-6 rounded-3xl border border-border bg-card shadow-sm space-y-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">DAYS PRESENT</span>
@@ -1018,17 +1010,6 @@ export function GuardianDashboard() {
                 <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">Minimal</span>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium">Arrived after 08:00 AM</p>
-            </div>
-
-            <div className="p-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm space-y-2">
-              <span className="text-xs font-black text-primary uppercase tracking-wider block">ATTENDANCE RATE</span>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-primary">95.0%</span>
-                <span className="text-xs font-extrabold text-emerald-600 bg-emerald-100 px-2.5 py-0.5 rounded-full">EXCELLENT</span>
-              </div>
-              <div className="h-2 w-full bg-border rounded-full overflow-hidden mt-2">
-                <div className="h-full bg-primary rounded-full" style={{ width: "95%" }} />
-              </div>
             </div>
 
           </div>
@@ -1194,11 +1175,7 @@ export function GuardianDashboard() {
                     setSelectedAlertDetail(alert)
                     setReadAlertIds(prev => ({ ...prev, [alert.id]: true }))
                   }}
-                  className={`p-5 rounded-3xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                    alert.isRead 
-                      ? "bg-card border-border hover:border-primary/40" 
-                      : "bg-primary/5 border-primary/30 shadow-sm"
-                  }`}
+                  className="p-5 rounded-3xl border border-border bg-card hover:border-primary/40 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-4">
                     <div className={`flex h-11 w-11 items-center justify-center rounded-2xl shrink-0 font-bold ${

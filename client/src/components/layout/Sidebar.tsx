@@ -175,48 +175,21 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* Sidebar Container */}
       <aside
         className={cn(
-          "fixed top-0 left-0 md:top-auto md:left-auto md:relative z-40 h-screen md:h-full bg-primary text-white transition-all duration-300 ease-in-out shadow-xl flex flex-col shrink-0",
+          "fixed top-0 left-0 md:top-auto md:left-auto md:relative z-40 h-screen md:h-full bg-primary text-white transition-all duration-300 ease-in-out shadow-xl flex flex-col shrink-0 relative",
           isCollapsed ? "w-20" : "w-64",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
-        {/* Header/Logo Section */}
-        <div className="relative flex items-center justify-between h-32 px-6 border-b border-white/10 shrink-0">
-          {!isCollapsed && (
-            <div className="flex items-center gap-3.5 overflow-hidden whitespace-nowrap">
-              <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shrink-0">
-                <CreditCard size={22} className="text-secondary" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-wider leading-none">FCU</span>
-                <span className="text-base font-extrabold tracking-tight mt-1 leading-none text-white">
-                  Kindergarten
-                </span>
-                <span className="text-[9px] tracking-widest text-secondary font-bold uppercase mt-1.5 leading-none">
-                  RFID Monitoring System
-                </span>
-              </div>
-            </div>
-          )}
-          {isCollapsed && (
-            <div className="w-full flex justify-center">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shrink-0">
-                <CreditCard size={20} className="text-secondary" />
-              </div>
-            </div>
-          )}
-
-          {/* Desktop Sidebar Collapse Toggle Arrow */}
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:flex p-1.5 rounded-lg bg-yellow-400 text-blue-900 hover:bg-yellow-400/30 dark:bg-white dark:text-black dark:hover:bg-white/15 hover:text-white/70 transition-colors absolute -right-3 top-16 border border-white/10 shadow-lg z-50 cursor-pointer ease-in-out"
-          >
-            {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-          </button>
-        </div>
+        {/* Desktop Sidebar Collapse Toggle Arrow */}
+        <button
+          onClick={toggleSidebar}
+          className="hidden md:flex p-1.5 rounded-lg bg-yellow-400 text-blue-900 hover:bg-yellow-400/30 dark:bg-white dark:text-black dark:hover:bg-white/15 hover:text-white/70 transition-colors absolute -right-3 top-5 border border-white/10 shadow-lg z-50 cursor-pointer ease-in-out"
+        >
+          {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
 
         {/* Navigation Links */}
-        <div className="flex flex-col flex-1 justify-between overflow-y-auto">
+        <div className="flex flex-col flex-1 justify-between overflow-y-auto pt-2">
           <nav className="p-4 space-y-1">
             {filteredRoutes.map((item) => {
               const isActive = isItemActive(item.path)

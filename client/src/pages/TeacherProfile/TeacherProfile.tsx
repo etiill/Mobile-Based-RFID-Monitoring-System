@@ -8,14 +8,16 @@ export function TeacherProfile() {
     return JSON.parse(localStorage.getItem("user") || "{}")
   })
 
-  // Profile details states (with default fallback values if empty, matching the mockup)
-  const name = user.name || "Ana Maria Reyes"
-  const email = user.email || "ana.reyes@fcu.edu.ph"
+  const isAdmin = user.role === "admin"
+
+  // Profile details states (with default fallback values if empty, matching the role)
+  const name = user.name || (isAdmin ? "Administrator" : "Ana Maria Reyes")
+  const email = user.email || (isAdmin ? "admin@fcu.edu.ph" : "ana.reyes@fcu.edu.ph")
   const phone = user.phone || "0917 555 1234"
   const birthDate = user.birth_date || "March 15, 1992"
-  const facultyClassification = user.faculty_classification || "Regular Faculty"
+  const facultyClassification = user.faculty_classification || (isAdmin ? "System Administrator" : "Regular Faculty")
   const location = user.location || "Quezon City, PH"
-  const title = user.title || "KINDERGARTEN LEAD TEACHER"
+  const title = user.title || (isAdmin ? "SYSTEM ADMINISTRATOR" : "KINDERGARTEN LEAD TEACHER")
 
   // Edit Profile States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -178,9 +180,13 @@ export function TeacherProfile() {
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300 font-sans pb-12">
       {/* Title Header */}
       <div>
-        <h1 className="text-2xl font-bold text-primary dark:text-foreground">Teacher Profile</h1>
+        <h1 className="text-2xl font-bold text-primary dark:text-foreground">
+          {isAdmin ? "Admin Profile" : "Teacher Profile"}
+        </h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Manage your professional information and account security.
+          {isAdmin 
+            ? "Manage system administrator account security, credentials, and details." 
+            : "Manage your professional information and account security."}
         </p>
       </div>
 
@@ -256,13 +262,15 @@ export function TeacherProfile() {
 
         {/* Right Column (Personal Details Card & Data Privacy Warning) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Card 2: Teacher Details (Consolidated) */}
+          {/* Card 2: Details */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
             <div className="flex items-center gap-3 border-b border-border pb-4">
               <div className="p-2 bg-amber-50 rounded-xl">
                 <User className="h-5 w-5 text-amber-600" />
               </div>
-              <h2 className="text-base font-bold text-primary dark:text-foreground">Teacher Details</h2>
+              <h2 className="text-base font-bold text-primary dark:text-foreground">
+                {isAdmin ? "Admin Details" : "Teacher Details"}
+              </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 text-xs font-sans">
@@ -280,23 +288,27 @@ export function TeacherProfile() {
                 <p className="text-neutral font-bold text-sm mt-0.5">{birthDate}</p>
               </div>
 
-              <div className="space-y-1">
-                <span className="font-bold text-muted-foreground tracking-wider uppercase text-[10px]">
-                  Assigned Section
-                </span>
-                <p className="text-neutral font-bold text-sm mt-0.5">
-                  {assignedSections.length > 0 ? assignedSections.join(", ") : "No assigned section"}
-                </p>
-              </div>
+              {!isAdmin && (
+                <>
+                  <div className="space-y-1">
+                    <span className="font-bold text-muted-foreground tracking-wider uppercase text-[10px]">
+                      Assigned Section
+                    </span>
+                    <p className="text-neutral font-bold text-sm mt-0.5">
+                      {assignedSections.length > 0 ? assignedSections.join(", ") : "No assigned section"}
+                    </p>
+                  </div>
 
-              <div className="space-y-1">
-                <span className="font-bold text-muted-foreground tracking-wider uppercase text-[10px]">
-                  {user.role === "admin" ? "Total System Students" : "Assigned Students"}
-                </span>
-                <p className="text-neutral font-bold text-sm mt-0.5 font-sans">
-                  {studentCount !== null ? `${studentCount} Pupils` : "Loading..."}
-                </p>
-              </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-muted-foreground tracking-wider uppercase text-[10px]">
+                      Assigned Students
+                    </span>
+                    <p className="text-neutral font-bold text-sm mt-0.5 font-sans">
+                      {studentCount !== null ? `${studentCount} Pupils` : "Loading..."}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="pt-2">
@@ -342,7 +354,9 @@ export function TeacherProfile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <h2 className="text-base font-bold text-primary">Edit Teacher Profile</h2>
+              <h2 className="text-base font-bold text-primary">
+                {isAdmin ? "Edit Admin Profile" : "Edit Teacher Profile"}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(false)}

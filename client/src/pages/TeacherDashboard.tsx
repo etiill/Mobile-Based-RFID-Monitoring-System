@@ -540,8 +540,8 @@ export function TeacherDashboard() {
               <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
             </div>
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-950/40 border border-indigo-500/30 shadow-xs shrink-0">
-              <Moon className="h-6 w-6 fill-indigo-400 text-indigo-400" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/30 shadow-xs shrink-0">
+              <Moon className="h-6 w-6 fill-indigo-400 text-indigo-500 dark:text-indigo-400" />
             </div>
           )}
           <div>
