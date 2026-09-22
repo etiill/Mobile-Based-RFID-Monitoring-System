@@ -196,14 +196,14 @@ export function RfidScan() {
           return `${hours}:${strMinutes} ${ampm}`
         }
       }
-    } catch {}
+    } catch { }
 
     try {
       const dateObj = new Date(`2000-01-01T${rawTime}`)
       if (!isNaN(dateObj.getTime())) {
         return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
       }
-    } catch {}
+    } catch { }
 
     return rawTime
   }
@@ -306,7 +306,7 @@ export function RfidScan() {
     try {
       bc = new BroadcastChannel("rfid_attendance_sync")
       bc.onmessage = () => fetchRecentScans()
-    } catch {}
+    } catch { }
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "rfid_gate_logs") fetchRecentScans()
@@ -432,7 +432,7 @@ export function RfidScan() {
         const bc = new BroadcastChannel("rfid_attendance_sync")
         bc.postMessage({ type: "rfid_scanned", timestamp: Date.now() })
         bc.close()
-      } catch {}
+      } catch { }
 
       toast.add({
         title: `UHF Scanned: ${scannedStudent ? scannedStudent.name : studentRfid}`,
@@ -798,7 +798,7 @@ export function RfidScan() {
         const bc = new BroadcastChannel("rfid_attendance_sync")
         bc.postMessage({ type: "rfid_logs_cleared", timestamp: Date.now() })
         bc.close()
-      } catch {}
+      } catch { }
 
       toast.add({
         title: "Gate Logs Cleared",
@@ -877,8 +877,8 @@ export function RfidScan() {
           <button
             onClick={toggleReaderStatus}
             className={`flex items-center gap-2 rounded-xl text-xs font-bold text-white shadow-sm border-none px-4 py-2.5 transition-all cursor-pointer ${readerStatus === 'Disconnected'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-emerald-500 hover:bg-emerald-600'
+              ? 'bg-red-500 hover:bg-red-600'
+              : 'bg-emerald-500 hover:bg-emerald-600'
               }`}
           >
             {readerStatus === 'Disconnected' ? (
@@ -923,8 +923,8 @@ export function RfidScan() {
                   <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Physical USB UHF Reader</h3>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${hidDevice
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                    : 'bg-indigo-50 text-indigo-600 border-indigo-200'
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-indigo-50 text-indigo-600 border-indigo-200'
                   }`}>
                   {hidDevice ? 'WebHID Linked' : 'Ready to Link'}
                 </span>
@@ -1245,7 +1245,7 @@ export function RfidScan() {
               <div className="flex items-center justify-between bg-tertiary/20 px-5 py-4 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Radio className="h-4 w-4 text-emerald-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Live RFID Gate Log</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Arrival Detection Log</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1256,9 +1256,6 @@ export function RfidScan() {
                     <Trash2 className="h-3 w-3" />
                     <span>Clear Logs</span>
                   </button>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2.5 py-0.5 font-bold uppercase tracking-wider">
-                    Real-Time
-                  </span>
                 </div>
               </div>
 

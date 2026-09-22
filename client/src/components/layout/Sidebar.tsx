@@ -54,7 +54,7 @@ export const ADMIN_ROUTES = [
     icon: Layers,
   },
   {
-    label: "RFID Scan",
+    label: "RFID Monitoring",
     path: PATHS.APP.TEACHER.RFID_SCAN,
     icon: ScanLine,
   },
