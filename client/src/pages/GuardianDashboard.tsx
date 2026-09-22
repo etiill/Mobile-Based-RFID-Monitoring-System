@@ -647,15 +647,11 @@ export function GuardianDashboard() {
             </p>
           </div>
 
-          {/* Quick Date & Live Status Pill */}
+          {/* Quick Date */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-tertiary/40 border border-border text-xs font-bold text-muted-foreground">
               <Calendar className="h-4 w-4 text-primary" />
               <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>RFID Gate Sync Active</span>
             </div>
           </div>
         </div>
@@ -1265,7 +1261,7 @@ export function GuardianDashboard() {
         <div className="space-y-6 animate-fade-in">
           
           {/* Dual-Tabbed Segment Switcher */}
-          <div className="flex items-center justify-center p-1.5 rounded-2xl bg-card border border-border shadow-sm max-w-md mx-auto">
+          <div className="flex items-center justify-center p-1.5 rounded-2xl bg-card border border-border shadow-sm max-w-2xl w-full mx-auto">
             <button
               onClick={() => setProfileSubTab("parent")}
               className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${
@@ -1288,105 +1284,97 @@ export function GuardianDashboard() {
             </button>
           </div>
 
-          {/* SUB-TAB 1: PARENT INFO */}
+          {/* SUB-TAB 1: PARENT INFO & GUARDIANS */}
           {profileSubTab === "parent" && (
             <div className="grid gap-6 md:grid-cols-3">
               
               {/* Primary Account Card */}
-              <div className="md:col-span-1 rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
-                <div className="text-center space-y-3">
-                  <div className="h-20 w-20 rounded-3xl bg-primary/10 border border-primary/20 text-primary text-2xl font-black flex items-center justify-center mx-auto">
-                    {parentName.charAt(0)}
+              <div className="md:col-span-1 rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <div className="text-center space-y-3">
+                    <div className="h-20 w-20 rounded-3xl bg-primary/10 border border-primary/20 text-primary text-2xl font-black flex items-center justify-center mx-auto">
+                      {parentName.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral">{parentName}</h3>
+                      <span className="text-xs text-primary font-bold">Primary Guardian Account</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-neutral">{parentName}</h3>
-                    <span className="text-xs text-primary font-bold">Primary Guardian Account</span>
+
+                  <div className="pt-4 border-t border-border space-y-4 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">EMAIL ADDRESS</span>
+                      <span className="font-extrabold text-neutral">{parentEmail}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">MOBILE NUMBER</span>
+                      <span className="font-extrabold text-neutral">{parentPhone}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border space-y-4 text-xs">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">EMAIL ADDRESS</span>
-                    <span className="font-extrabold text-neutral">{parentEmail}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">MOBILE NUMBER</span>
-                    <span className="font-extrabold text-neutral">{parentPhone}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">PORTAL LANGUAGE SETTINGS</span>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Globe className="h-4 w-4 text-primary shrink-0" />
-                      <select
-                        value={selectedLanguage}
-                        onChange={(e) => handleLanguageChange(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-border bg-tertiary/40 text-xs font-bold text-neutral outline-none cursor-pointer"
-                      >
-                        <option value="English (US)">English (US)</option>
-                        <option value="Filipino / Tagalog">Filipino / Tagalog</option>
-                        <option value="Cebuano / Bisaya">Cebuano / Bisaya</option>
-                      </select>
-                    </div>
+                <div className="pt-2">
+                  <div className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Authorized for Dismissal</span>
                   </div>
                 </div>
               </div>
 
-              {/* Authorized Guardians List */}
-              <div className="md:col-span-2 rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+              {/* Connected Guardians List Container */}
+              <div className="md:col-span-2 rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
                   <div>
-                    <h3 className="text-base font-black text-neutral">Authorized Guardians for Pickup</h3>
-                    <p className="text-xs text-muted-foreground font-semibold mt-0.5">
-                      Secondary individuals authorized to collect {activeChild.name} during dismissal.
+                    <h3 className="text-base font-black text-neutral">Connected Guardians</h3>
+                    <p className="text-xs text-muted-foreground font-semibold">
+                      All registered guardians connected to <strong className="text-primary">{activeChild.name}</strong>.
                     </p>
                   </div>
-                  
-                  <button
-                    onClick={() => setIsAddGuardianModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black shadow-sm hover:opacity-95 transition-all cursor-pointer border-none shrink-0"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    <span>+ Add Authorized Guardian</span>
-                  </button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {activeChild.guardians.map((g, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl border border-border bg-tertiary/20 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary font-black flex items-center justify-center text-sm">
-                            {g.name.charAt(0)}
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-black text-neutral">{g.name}</h4>
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                              {g.relation}
-                            </span>
+                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+                  {activeChild.guardians && activeChild.guardians.length > 0 ? (
+                    activeChild.guardians.map((g, idx) => (
+                      <div key={idx} className="p-5 rounded-2xl border border-border bg-tertiary/20 space-y-3.5 shadow-xs hover:border-border/80 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary font-black flex items-center justify-center text-base shrink-0">
+                              {g.name.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="text-base font-black text-neutral">{g.name}</h4>
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md inline-block mt-0.5">
+                                {g.relation || "Guardian"}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="pt-2 border-t border-border/50 text-[11px] space-y-1 text-muted-foreground font-semibold">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          <span>{g.phone}</span>
-                        </div>
-                        {g.email && (
+                        <div className="pt-3 border-t border-border/50 text-xs space-y-1.5 text-muted-foreground font-semibold">
                           <div className="flex items-center gap-2">
-                            <Mail className="h-3 w-3" />
-                            <span className="truncate">{g.email}</span>
+                            <Phone className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                            <span>{g.phone}</span>
                           </div>
-                        )}
-                      </div>
+                          {g.email && (
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                              <span className="truncate">{g.email}</span>
+                            </div>
+                          )}
+                        </div>
 
-                      <div className="flex items-center justify-between pt-1 text-[10px] text-emerald-700 font-extrabold">
-                        <span className="flex items-center gap-1">
-                          <ShieldCheck className="h-3.5 w-3.5" /> Authorized for Dismissal
-                        </span>
+                        <div className="flex items-center justify-between pt-1 text-xs text-emerald-700 font-extrabold">
+                          <span className="flex items-center gap-1.5">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600" /> Authorized for Dismissal
+                          </span>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 p-6 text-center border border-dashed border-border rounded-2xl text-muted-foreground text-xs font-semibold">
+                      No additional guardians registered for {activeChild.name}.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 

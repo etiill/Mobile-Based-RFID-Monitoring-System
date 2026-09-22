@@ -9,7 +9,8 @@ import {
   Users, 
   Eye,
   RefreshCw,
-  Edit2
+  Edit2,
+  ChevronDown
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -480,18 +481,18 @@ export function Attendance() {
       </div>
 
       {/* Filters & search panel */}
-      <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center w-full">
           
-          {/* Search Box */}
-          <div className="relative w-full md:max-w-xs">
+          {/* Full-width Search Box */}
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search student by name or ID..."
-              className="w-full rounded-xl border border-border bg-tertiary pl-10 pr-4 py-3 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all"
+              placeholder="Search student by name, RFID, or student ID..."
+              className="w-full rounded-xl border border-border bg-tertiary pl-10 pr-9 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all"
             />
             {searchQuery && (
               <button
@@ -503,44 +504,49 @@ export function Attendance() {
             )}
           </div>
 
-          {/* Date Selector */}
-          <div className="relative w-full sm:max-w-[170px]">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all cursor-pointer"
-            />
-          </div>
+          {/* Filter Dropdowns & Selectors Group */}
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* Date Selector */}
+            <div className="relative flex-1 md:flex-initial md:w-[170px]">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all cursor-pointer"
+              />
+            </div>
 
-          {/* Section Filter dropdown */}
-          <div className="relative w-full sm:max-w-[180px]">
-            <select
-              value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
-              className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-3 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all appearance-none cursor-pointer"
-            >
-              <option value="">All Assigned Sections</option>
-              {teacherSections.map(sec => (
-                <option key={sec.id} value={sec.id}>
-                  {sec.year_level} - {sec.section_name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Section Filter dropdown */}
+            <div className="relative flex-1 md:flex-initial md:w-[185px]">
+              <select
+                value={selectedSectionId}
+                onChange={(e) => setSelectedSectionId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-tertiary pl-3.5 pr-8 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all appearance-none cursor-pointer"
+              >
+                <option value="">All Assigned Sections</option>
+                {teacherSections.map(sec => (
+                  <option key={sec.id} value={sec.id}>
+                    {sec.year_level} - {sec.section_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
 
-          {/* Status selector */}
-          <div className="relative w-full sm:max-w-[150px]">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-3 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all appearance-none cursor-pointer"
-            >
-              <option value="All Status">All Status</option>
-              <option value="Present">Present</option>
-              <option value="Late">Late</option>
-              <option value="Absent">Absent</option>
-            </select>
+            {/* Status selector */}
+            <div className="relative flex-1 md:flex-initial md:w-[145px]">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full rounded-xl border border-border bg-tertiary pl-3.5 pr-8 py-2.5 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all appearance-none cursor-pointer"
+              >
+                <option value="All Status">All Status</option>
+                <option value="Present">Present</option>
+                <option value="Late">Late</option>
+                <option value="Absent">Absent</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
 
         </div>
