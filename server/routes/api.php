@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Teacher CRUD Management
     Route::get('/teachers', [StudentController::class, 'indexTeachers']);
     Route::post('/teachers', [StudentController::class, 'storeTeacher']);
+    Route::put('/teachers/{id}', [StudentController::class, 'updateTeacher']);
     Route::delete('/teachers/{id}', [StudentController::class, 'destroyTeacher']);
 
     // Section & Year Level CRUD Management

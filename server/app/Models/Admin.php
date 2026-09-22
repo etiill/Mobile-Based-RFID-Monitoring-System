@@ -36,6 +36,7 @@ class Admin extends Authenticatable
         'role',
         'role_id',
         'phone',
+        'gender',
         'birth_date',
         'faculty_classification',
         'location',
@@ -70,6 +71,14 @@ class Admin extends Authenticatable
     public function systemRole()
     {
         return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Get the sections assigned to this teacher.
+     */
+    public function sections()
+    {
+        return $this->hasMany(Section::class, 'teacher_id');
     }
 
     /**

@@ -49,7 +49,7 @@ export const ADMIN_ROUTES = [
     icon: UserPlus,
   },
   {
-    label: "Sections & Classes",
+    label: "Year Level & Sections",
     path: `${PATHS.APP.ADMIN.REGISTRATION}?tab=sections`,
     icon: Layers,
   },

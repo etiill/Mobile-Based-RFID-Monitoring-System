@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  GraduationCap
+  GraduationCap,
+  AlertTriangle
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -274,8 +275,15 @@ export function Pupils() {
     }
   }
 
-  const handleDeletePupil = async (id: string | number) => {
-    if (!confirm("Are you sure you want to delete this pupil record?")) return
+  const [pupilToDelete, setPupilToDelete] = useState<{ id: string | number; name: string } | null>(null)
+
+  const promptDeletePupil = (id: string | number, name: string) => {
+    setPupilToDelete({ id, name })
+  }
+
+  const handleConfirmDeletePupil = async () => {
+    if (!pupilToDelete) return
+    const { id } = pupilToDelete
     try {
       await ApiHandler.delete(`/students/${id}`)
       setStudents(students.filter(s => s.id !== id))
@@ -291,6 +299,8 @@ export function Pupils() {
         description: err.message || "Failed to delete pupil record.",
         type: "error",
       })
+    } finally {
+      setPupilToDelete(null)
     }
   }
 
@@ -622,7 +632,7 @@ export function Pupils() {
                 {editingPupil && (
                   <button
                     type="button"
-                    onClick={() => handleDeletePupil(editingPupil.id)}
+                    onClick={() => promptDeletePupil(editingPupil.id, editingPupil.name)}
                     className="flex-1 py-2.5 rounded-lg border border-destructive text-xs font-bold bg-transparent text-destructive hover:bg-destructive/10 transition-all cursor-pointer"
                   >
                     Delete Pupil
@@ -757,6 +767,42 @@ export function Pupils() {
                   Close Detail
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM PUPIL DELETION */}
+      {pupilToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Pupil Record?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete pupil record <strong className="text-neutral font-bold">{pupilToDelete.name}</strong>? All linked guardian relationships and RFID history will be removed.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setPupilToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeletePupil}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
             </div>
           </div>
         </div>

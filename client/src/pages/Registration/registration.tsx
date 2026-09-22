@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
-import { 
-  UserPlus, 
-  Pencil, 
-  Trash2, 
-  Plus, 
-  ChevronDown, 
-  X, 
-  Users, 
+import {
+  UserPlus,
+  Pencil,
+  Trash2,
+  Plus,
+  ChevronDown,
+  X,
+  Users,
   CreditCard,
   UserCheck,
   Search,
@@ -15,7 +15,11 @@ import {
   ChevronRight,
   Loader2,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  Phone,
+  Mail,
+  GraduationCap,
+  DoorClosed
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -199,12 +203,28 @@ export function Registration() {
   const [editGuardianPassword, setEditGuardianPassword] = useState("")
   const [editGuardianConfirmPassword, setEditGuardianConfirmPassword] = useState("")
 
-  // Guardian Delete Confirmation Modal State
+  // Delete Confirmation Modal States
   const [guardianToDelete, setGuardianToDelete] = useState<{
     studentId: string | number
     guardianId: string | number
     guardianName: string
   } | null>(null)
+
+  const [studentToDelete, setStudentToDelete] = useState<{ id: string | number; name: string } | null>(null)
+  const [teacherToDelete, setTeacherToDelete] = useState<{ id: string | number; name: string } | null>(null)
+  const [sectionToDelete, setSectionToDelete] = useState<{ id: string | number; name: string } | null>(null)
+
+  const promptDeleteStudent = (id: string | number, name: string) => {
+    setStudentToDelete({ id, name })
+  }
+
+  const promptDeleteTeacher = (id: string | number, name: string) => {
+    setTeacherToDelete({ id, name })
+  }
+
+  const promptDeleteSection = (id: string | number, name: string) => {
+    setSectionToDelete({ id, name })
+  }
 
   // Multiple Guardians Dropdown State
   const [openGuardianDropdownId, setOpenGuardianDropdownId] = useState<string | number | null>(null)
@@ -230,8 +250,11 @@ export function Registration() {
 
   // Teacher Modal & Form State
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false)
+  const [editingTeacherId, setEditingTeacherId] = useState<string | number | null>(null)
   const [teacherName, setTeacherName] = useState("")
   const [teacherEmail, setTeacherEmail] = useState("")
+  const [teacherPhone, setTeacherPhone] = useState("")
+  const [teacherGender, setTeacherGender] = useState("Female")
   const [teacherPassword, setTeacherPassword] = useState("")
   const [teacherConfirmPassword, setTeacherConfirmPassword] = useState("")
 
@@ -306,10 +329,24 @@ export function Registration() {
 
   const handleCloseTeacherModal = () => {
     setIsTeacherModalOpen(false)
+    setEditingTeacherId(null)
     setTeacherName("")
     setTeacherEmail("")
+    setTeacherPhone("")
+    setTeacherGender("Female")
     setTeacherPassword("")
     setTeacherConfirmPassword("")
+  }
+
+  const handleEditTeacherClick = (teacher: any) => {
+    setEditingTeacherId(teacher.id)
+    setTeacherName(teacher.name || "")
+    setTeacherEmail(teacher.email || "")
+    setTeacherPhone(teacher.phone || "")
+    setTeacherGender(teacher.gender || "Female")
+    setTeacherPassword("")
+    setTeacherConfirmPassword("")
+    setIsTeacherModalOpen(true)
   }
 
   const handleCloseSectionModal = () => {
@@ -377,7 +414,9 @@ export function Registration() {
     setIsSectionModalOpen(true)
   }
 
-  const handleDeleteSection = async (id: string | number) => {
+  const handleConfirmDeleteSection = async () => {
+    if (!sectionToDelete) return
+    const { id } = sectionToDelete
     try {
       await ApiHandler.delete(`/sections/${id}`)
       setSections(sections.filter((sec) => sec.id !== id))
@@ -392,6 +431,8 @@ export function Registration() {
         description: err.message || "Failed to delete section.",
         type: "error",
       })
+    } finally {
+      setSectionToDelete(null)
     }
   }
 
@@ -420,7 +461,14 @@ export function Registration() {
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!teacherName.trim() || !teacherEmail.trim() || !teacherPassword.trim()) return
+    if (!teacherName.trim() || !teacherEmail.trim() || !teacherPhone.trim() || !teacherGender || !teacherPassword.trim()) {
+      toast.add({
+        title: "Validation Error",
+        description: "Please fill out all required fields, including cellphone number and gender.",
+        type: "error",
+      })
+      return
+    }
 
     if (teacherPassword !== teacherConfirmPassword) {
       toast.add({
@@ -435,11 +483,13 @@ export function Registration() {
       const response = await ApiHandler.post<any>("/teachers", {
         name: teacherName,
         email: teacherEmail,
+        phone: teacherPhone,
+        gender: teacherGender,
         password: teacherPassword,
       })
 
       setTeachers([...teachers, response])
-      
+
       toast.add({
         title: "Teacher Registered",
         description: `${teacherName} has been registered successfully.`,
@@ -457,11 +507,13 @@ export function Registration() {
     }
   }
 
-  const handleDeleteTeacher = async (id: string | number) => {
+  const handleConfirmDeleteTeacher = async () => {
+    if (!teacherToDelete) return
+    const { id } = teacherToDelete
     try {
       await ApiHandler.delete(`/teachers/${id}`)
       setTeachers(teachers.filter((teacher) => teacher.id !== id))
-      
+
       toast.add({
         title: "Teacher Removed",
         description: "Teacher account deleted successfully.",
@@ -473,6 +525,8 @@ export function Registration() {
         description: err.message || "Failed to delete teacher.",
         type: "error",
       })
+    } finally {
+      setTeacherToDelete(null)
     }
   }
 
@@ -746,7 +800,7 @@ export function Registration() {
         const response = await ApiHandler.post<Student>("/students", payload)
 
         setStudents([...students, response])
-        
+
         toast.add({
           title: "Student Registered",
           description: `${studentName} has been registered successfully.`,
@@ -826,11 +880,13 @@ export function Registration() {
     }
   }
 
-  const handleDeleteStudent = async (id: string | number) => {
+  const handleConfirmDeleteStudent = async () => {
+    if (!studentToDelete) return
+    const { id } = studentToDelete
     try {
       await ApiHandler.delete(`/students/${id}`)
       setStudents(students.filter((student) => student.id !== id))
-      
+
       toast.add({
         title: "Student Removed",
         description: "Student profile deleted successfully.",
@@ -842,6 +898,8 @@ export function Registration() {
         description: err.message || "Failed to delete student.",
         type: "error",
       })
+    } finally {
+      setStudentToDelete(null)
     }
   }
 
@@ -891,7 +949,7 @@ export function Registration() {
 
         <div className="grid gap-6 sm:grid-cols-3 pt-4">
           {/* Card 1: Students & Guardians */}
-          <div 
+          <div
             onClick={() => setActiveTab("students")}
             className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
           >
@@ -907,7 +965,7 @@ export function Registration() {
           </div>
 
           {/* Card 2: Class Teachers */}
-          <div 
+          <div
             onClick={() => setActiveTab("teachers")}
             className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
           >
@@ -923,7 +981,7 @@ export function Registration() {
           </div>
 
           {/* Card 3: Year Levels & Sections */}
-          <div 
+          <div
             onClick={() => setActiveTab("sections")}
             className="bg-card hover:bg-tertiary/10 border border-border hover:border-primary/30 rounded-2xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-1 space-y-4 group text-center"
           >
@@ -944,7 +1002,7 @@ export function Registration() {
 
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
-      
+
       {/* Header Panel with Full-Width Title and Top Search Bar */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
         <div className="flex items-center gap-4 shrink-0">
@@ -953,16 +1011,16 @@ export function Registration() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-primary whitespace-nowrap">
-              {activeTab === "students" 
-                ? "Guardian Registration" 
-                : activeTab === "teachers" 
+              {activeTab === "students"
+                ? "Guardian Registration"
+                : activeTab === "teachers"
                   ? "Teacher Account Registration"
                   : "Year Level & Section Registration"
               }
             </h1>
           </div>
         </div>
-        
+
         {/* Top Search Input Bar for Guardians Tab */}
         {activeTab === "students" && (
           <div className="relative flex-1 max-w-xl w-full">
@@ -1077,7 +1135,7 @@ export function Registration() {
                             <td className="px-4 py-3.5 whitespace-nowrap">
                               <div className="flex flex-col gap-0.5">
                                 <span className="font-bold text-neutral">
-                                  {student.section 
+                                  {student.section
                                     ? `${student.section.year_level} - ${student.section.section_name}`
                                     : student.grade || "Unassigned"
                                   }
@@ -1252,7 +1310,7 @@ export function Registration() {
                                   <Pencil className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteStudent(student.id)}
+                                  onClick={() => promptDeleteStudent(student.id, student.name)}
                                   className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
                                   title="Delete Student"
                                 >
@@ -1322,11 +1380,10 @@ export function Registration() {
                           key={pageNum}
                           disabled={isPageLoading}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
-                            isActive
-                              ? "bg-primary text-white border-none shadow-xs"
-                              : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
-                          }`}
+                          className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${isActive
+                            ? "bg-primary text-white border-none shadow-xs"
+                            : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
+                            }`}
                         >
                           {pageNum}
                         </button>
@@ -1365,35 +1422,155 @@ export function Registration() {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-                  {teachers.map((teacher) => {
-                    const initials = teacher.name
-                      ? teacher.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2)
-                      : "T"
-                    return (
-                      <div key={teacher.id} className="rounded-2xl border border-border bg-card shadow-sm p-5 flex items-center justify-between transition-all hover:shadow-md hover:border-border/80">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold">
-                            {initials}
+                <div className="space-y-4 animate-fade-in">
+                  {teachers
+                    .filter(
+                      (teacher) =>
+                        teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        teacher.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (teacher.phone && teacher.phone.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((teacher, index) => {
+                      const initials = teacher.name
+                        ? teacher.name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .substring(0, 2)
+                        : "T"
+
+                      // Fetch section data linked to this teacher
+                      const teacherSections = teacher.sections && teacher.sections.length > 0
+                        ? teacher.sections
+                        : sections.filter((s) => s.teacher_id && String(s.teacher_id) === String(teacher.id))
+
+                      // Section Display Text
+                      const sectionDisplay =
+                        teacherSections.length > 0
+                          ? teacherSections.map((s: any) => `${s.year_level} ${s.section_name}`).join(" & ")
+                          : "Unassigned"
+
+                      // Room Display Text
+                      const roomDisplay =
+                        teacherSections.length > 0
+                          ? teacherSections.map((s: any, idx: number) => s.room_number || `Rm ${idx + 1}`).join(", ")
+                          : "N/A"
+
+                      // Total Pupils count
+                      let totalPupils = 0
+                      if (teacher.sections && teacher.sections.length > 0) {
+                        totalPupils = teacher.sections.reduce((acc: number, sec: any) => acc + (sec.students ? sec.students.length : 0), 0)
+                      }
+                      if (totalPupils === 0) {
+                        const teacherSecIds = new Set(teacherSections.map((s: any) => String(s.id)))
+                        totalPupils = students.filter((st) => st.section_id && teacherSecIds.has(String(st.section_id))).length
+                      }
+
+                      // Color variant accents for avatar / card border
+                      const colorStyles = [
+                        { avatarBg: "bg-blue-600 text-white", borderAccent: "border-l-blue-600", textAccent: "text-blue-900 dark:text-blue-300" },
+                        { avatarBg: "bg-emerald-600 text-white", borderAccent: "border-l-emerald-600", textAccent: "text-emerald-900 dark:text-emerald-300" },
+                        { avatarBg: "bg-purple-600 text-white", borderAccent: "border-l-purple-600", textAccent: "text-purple-900 dark:text-purple-300" },
+                        { avatarBg: "bg-indigo-600 text-white", borderAccent: "border-l-indigo-600", textAccent: "text-indigo-900 dark:text-indigo-300" },
+                      ]
+                      const style = colorStyles[index % colorStyles.length]
+
+                      return (
+                        <div
+                          key={teacher.id}
+                          className={`rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:shadow-md border-l-4 ${style.borderAccent}`}
+                        >
+                          {/* Left: Avatar Circle & Contact Info (No Class Teacher or Gender text) */}
+                          <div className="flex items-center gap-4 min-w-[280px]">
+                            <div
+                              className={`flex h-14 w-14 items-center justify-center rounded-full ${style.avatarBg} font-bold text-base shrink-0 select-none shadow-sm`}
+                            >
+                              {initials}
+                            </div>
+                            <div className="space-y-1">
+                              <h3 className="text-base font-bold text-primary dark:text-foreground leading-snug">
+                                {teacher.name}
+                              </h3>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
+                                <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                <span>{teacher.phone || "No phone provided"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
+                                <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                <span className="truncate max-w-[220px]">{teacher.email}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-sm font-bold text-primary dark:text-foreground">{teacher.name}</h3>
-                            <p className="text-xs text-muted-foreground font-semibold mt-0.5">{teacher.email}</p>
-                            <span className="inline-flex mt-2.5 rounded-full bg-blue-50 dark:bg-blue-950/20 text-blue-600 border border-blue-100 dark:border-blue-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
-                              Class Teacher
-                            </span>
+
+                          {/* Right: Inner Shaded Row Container (Year Level / Section, Room, Total Pupils) */}
+                          <div className="flex-1 rounded-2xl bg-tertiary/40 border border-border/60 p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                            {/* Year Level / Section */}
+                            <div className="flex items-center gap-3 pr-2">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                <GraduationCap className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                  Year Level / Section
+                                </div>
+                                <div className={`text-xs sm:text-sm font-extrabold ${style.textAccent} leading-snug`}>
+                                  {sectionDisplay}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Room */}
+                            <div className="flex items-center gap-3 sm:border-l sm:border-border/60 sm:pl-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                <DoorClosed className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                  Room
+                                </div>
+                                <div className="text-xs sm:text-sm font-bold text-neutral dark:text-foreground">
+                                  {roomDisplay}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Total of Pupils */}
+                            <div className="flex items-center gap-3 sm:border-l sm:border-border/60 sm:pl-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                <Users className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                  Total of Pupils
+                                </div>
+                                <div className={`text-base sm:text-lg font-black ${style.textAccent}`}>
+                                  {totalPupils}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons: Edit & Delete */}
+                          <div className="flex items-center gap-1 justify-end shrink-0">
+                            <button
+                              onClick={() => handleEditTeacherClick(teacher)}
+                              className="p-2.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-xl border-none bg-transparent"
+                              title="Edit Teacher Profile"
+                            >
+                              <Pencil className="h-4.5 w-4.5" />
+                            </button>
+                            <button
+                              onClick={() => promptDeleteTeacher(teacher.id, teacher.name)}
+                              className="p-2.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-xl border-none bg-transparent"
+                              title="Remove Teacher Account"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteTeacher(teacher.id)}
-                          className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
-                          title="Remove Teacher"
-                        >
-                          <Trash2 className="h-4.5 w-4.5" />
-                        </button>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                 </div>
               )}
             </div>
@@ -1455,7 +1632,7 @@ export function Registration() {
                           <Pencil className="h-4.5 w-4.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteSection(sec.id)}
+                          onClick={() => promptDeleteSection(sec.id, `${sec.year_level} - ${sec.section_name}`)}
                           className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
                           title="Remove Section"
                         >
@@ -1488,14 +1665,14 @@ export function Registration() {
               <h2 className="text-base font-bold text-primary">
                 {editingStudentId ? "Edit Pupil Details & Guardians" : "Register New Pupils"}
               </h2>
-              <button 
+              <button
                 onClick={handleCloseStudentModal}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleStudentSubmit} className="space-y-4 mt-4 font-sans">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Pupils Name</label>
@@ -1728,14 +1905,14 @@ export function Registration() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">Add Authorized Guardian</h2>
-              <button 
+              <button
                 onClick={handleCloseGuardianModal}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddGuardian} className="space-y-4 mt-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Guardian Name</label>
@@ -1797,22 +1974,21 @@ export function Registration() {
                   className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
                   required
                 />
-                
+
                 {/* Password Strength Indicator */}
                 {guardianPassword && (
                   <div className="pt-1.5 space-y-1">
                     <div className="flex gap-1 h-1.5 w-full bg-neutral/10 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-300 ${
-                        getPasswordStrength(guardianPassword).score >= 1 
-                          ? (getPasswordStrength(guardianPassword).score === 1 ? 'bg-red-500 w-1/3' : getPasswordStrength(guardianPassword).score === 2 ? 'bg-amber-500 w-2/3' : 'bg-emerald-500 w-full') 
-                          : 'w-0'
-                      }`} />
+                      <div className={`h-full rounded-full transition-all duration-300 ${getPasswordStrength(guardianPassword).score >= 1
+                        ? (getPasswordStrength(guardianPassword).score === 1 ? 'bg-red-500 w-1/3' : getPasswordStrength(guardianPassword).score === 2 ? 'bg-amber-500 w-2/3' : 'bg-emerald-500 w-full')
+                        : 'w-0'
+                        }`} />
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-bold">
                       <span className="text-muted-foreground">Password strength:</span>
                       <span className={
                         getPasswordStrength(guardianPassword).label === "Weak" ? "text-red-500" :
-                        getPasswordStrength(guardianPassword).label === "Medium" ? "text-amber-500" : "text-emerald-500"
+                          getPasswordStrength(guardianPassword).label === "Medium" ? "text-amber-500" : "text-emerald-500"
                       }>
                         {getPasswordStrength(guardianPassword).label}
                       </span>
@@ -1869,14 +2045,14 @@ export function Registration() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">Register New Teacher</h2>
-              <button 
+              <button
                 onClick={handleCloseTeacherModal}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddTeacher} className="space-y-4 mt-4 font-sans">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Full Name</label>
@@ -1888,6 +2064,34 @@ export function Registration() {
                   className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
                   required
                 />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-neutral/80">Gender</label>
+                  <select
+                    value={teacherGender}
+                    onChange={(e) => setTeacherGender(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all cursor-pointer font-sans"
+                    required
+                  >
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-neutral/80">Cellphone Number</label>
+                  <input
+                    type="text"
+                    value={teacherPhone}
+                    onChange={(e) => setTeacherPhone(e.target.value)}
+                    placeholder="e.g. 0917 123 4567"
+                    className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -1912,20 +2116,19 @@ export function Registration() {
                   className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
                   required
                 />
-                
+
                 {/* Password Strength Indicator */}
                 {teacherPassword && (
                   <div className="pt-1.5 space-y-1">
                     <div className="flex gap-1 h-1.5 w-full bg-neutral/10 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-300 ${
-                        strength.score >= 1 ? (strength.score === 1 ? 'bg-red-500 w-1/3' : strength.score === 2 ? 'bg-amber-500 w-2/3' : 'bg-emerald-500 w-full') : 'w-0'
-                      }`} />
+                      <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 1 ? (strength.score === 1 ? 'bg-red-500 w-1/3' : strength.score === 2 ? 'bg-amber-500 w-2/3' : 'bg-emerald-500 w-full') : 'w-0'
+                        }`} />
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-bold">
                       <span className="text-muted-foreground">Password strength:</span>
                       <span className={
                         strength.label === "Weak" ? "text-red-500" :
-                        strength.label === "Medium" ? "text-amber-500" : "text-emerald-500"
+                          strength.label === "Medium" ? "text-amber-500" : "text-emerald-500"
                       }>
                         {strength.label}
                       </span>
@@ -1984,14 +2187,14 @@ export function Registration() {
               <h2 className="text-base font-bold text-primary">
                 {editingSectionId ? "Edit Section Details" : "Register New Section"}
               </h2>
-              <button 
+              <button
                 onClick={handleCloseSectionModal}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSectionSubmit} className="space-y-4 mt-4 font-sans">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Year Level</label>
@@ -2060,21 +2263,21 @@ export function Registration() {
       {isViewPupilModalOpen && viewingPupil && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-border/60">
               <h2 className="text-base font-bold text-primary">Pupil Information Details</h2>
-              <button 
+              <button
                 onClick={handleCloseViewPupil}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             {/* Modal Content */}
             <div className="space-y-5 mt-4 font-sans text-xs">
-              
+
               {/* Pupil Details Card */}
               <div className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-tertiary/20">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold text-base">
@@ -2099,8 +2302,8 @@ export function Registration() {
                   <div className="flex justify-between items-center border-b border-border/50 pb-2.5">
                     <span className="text-muted-foreground font-semibold">Assigned Section:</span>
                     <span className="font-bold text-neutral">
-                      {viewingPupil.section 
-                        ? `${viewingPupil.section.year_level} - ${viewingPupil.section.section_name}` 
+                      {viewingPupil.section
+                        ? `${viewingPupil.section.year_level} - ${viewingPupil.section.section_name}`
                         : viewingPupil.grade.replace("Grade: ", "") || "Unassigned"}
                     </span>
                   </div>
@@ -2176,21 +2379,21 @@ export function Registration() {
       {isViewGuardianModalOpen && viewingGuardianData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-border/60">
               <h2 className="text-base font-bold text-primary">Authorized Guardian Details</h2>
-              <button 
+              <button
                 onClick={handleCloseViewGuardian}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             {/* Modal Content */}
             <div className="space-y-5 mt-4 font-sans text-xs">
-              
+
               {/* Guardian Card */}
               <div className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-tertiary/20">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 shrink-0 select-none font-bold text-base">
@@ -2284,21 +2487,21 @@ export function Registration() {
       {isEditGuardianModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-border/60">
               <div>
                 <h2 className="text-base font-bold text-primary">Edit Authorized Guardian</h2>
                 <p className="text-[11px] text-muted-foreground font-semibold">Update contact details and credentials for {editGuardianName}</p>
               </div>
-              <button 
+              <button
                 onClick={handleCloseEditGuardian}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveEditGuardian} className="space-y-4 mt-4 font-sans text-xs">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Full Name</label>
@@ -2430,6 +2633,114 @@ export function Registration() {
               </button>
               <button
                 onClick={handleConfirmDeleteGuardian}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM STUDENT / PUPIL DELETION */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Pupil Record?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete pupil record <strong className="text-neutral font-bold">{studentToDelete.name}</strong>? All linked guardian relationships and RFID history will be removed.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setStudentToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteStudent}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM TEACHER DELETION */}
+      {teacherToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Teacher Account?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete teacher account <strong className="text-neutral font-bold">{teacherToDelete.name}</strong>? Their section assignments will be unassigned.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setTeacherToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteTeacher}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM SECTION DELETION */}
+      {sectionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Section?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete section <strong className="text-neutral font-bold">{sectionToDelete.name}</strong>? Associated students will be marked as unassigned.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setSectionToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteSection}
                 className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
               >
                 Permanently Delete

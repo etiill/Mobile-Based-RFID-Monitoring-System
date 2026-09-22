@@ -70,6 +70,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $role,
                 'phone' => $user->phone ?? null,
+                'gender' => $user->gender ?? null,
                 'birth_date' => $user->birth_date ?? null,
                 'faculty_classification' => $user->faculty_classification ?? null,
                 'location' => $user->location ?? null,
@@ -110,6 +111,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:' . $table . ',email,' . $user->id,
             'phone' => 'nullable|string|max:20',
+            'gender' => 'nullable|string|max:50',
             'birth_date' => 'nullable|string|max:50',
             'faculty_classification' => 'nullable|string|max:100',
             'location' => 'nullable|string|max:255',
@@ -124,7 +126,7 @@ class AuthController extends Controller
         }
 
         $user->update($request->only([
-            'name', 'email', 'phone', 'birth_date', 'faculty_classification', 'location', 'title'
+            'name', 'email', 'phone', 'gender', 'birth_date', 'faculty_classification', 'location', 'title'
         ]));
 
         return response()->json([
@@ -135,6 +137,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role ?? 'admin',
                 'phone' => $user->phone,
+                'gender' => $user->gender,
                 'birth_date' => $user->birth_date,
                 'faculty_classification' => $user->faculty_classification,
                 'location' => $user->location,

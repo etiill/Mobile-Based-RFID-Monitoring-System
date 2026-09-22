@@ -16,7 +16,8 @@ import {
   UserCheck,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -292,8 +293,20 @@ export function MyStudents() {
     }
   }
 
-  const handleDeleteStudent = async (id: string | number) => {
-    if (!confirm("Are you sure you want to delete this pupil record?")) return
+  const [studentToDelete, setStudentToDelete] = useState<{ id: string | number; name: string } | null>(null)
+  const [guardianToDelete, setGuardianToDelete] = useState<{ studentId: string | number; guardianId: string | number; guardianName: string } | null>(null)
+
+  const promptDeleteStudent = (id: string | number, name: string) => {
+    setStudentToDelete({ id, name })
+  }
+
+  const promptDeleteGuardian = (studentId: string | number, guardianId: string | number, guardianName: string) => {
+    setGuardianToDelete({ studentId, guardianId, guardianName })
+  }
+
+  const handleConfirmDeleteStudent = async () => {
+    if (!studentToDelete) return
+    const { id } = studentToDelete
     try {
       await ApiHandler.delete(`/students/${id}`)
       setStudents(students.filter(s => s.id !== id))
@@ -309,6 +322,8 @@ export function MyStudents() {
         description: err.message || "Failed to delete pupil record.",
         type: "error",
       })
+    } finally {
+      setStudentToDelete(null)
     }
   }
 
@@ -393,8 +408,9 @@ export function MyStudents() {
     }
   }
 
-  const handleDeleteGuardian = async (studentId: string | number, guardianId: string | number) => {
-    if (!confirm("Are you sure you want to remove this guardian and delete their account?")) return
+  const handleConfirmDeleteGuardian = async () => {
+    if (!guardianToDelete) return
+    const { studentId, guardianId } = guardianToDelete
     try {
       await ApiHandler.delete(`/students/${studentId}/guardians/${guardianId}`)
       
@@ -428,6 +444,8 @@ export function MyStudents() {
         description: err.message || "Failed to remove guardian account.",
         type: "error",
       })
+    } finally {
+      setGuardianToDelete(null)
     }
   }
 
@@ -742,7 +760,7 @@ export function MyStudents() {
                 {editingStudent && (
                   <button
                     type="button"
-                    onClick={() => handleDeleteStudent(editingStudent.id)}
+                    onClick={() => promptDeleteStudent(editingStudent.id, editingStudent.name)}
                     className="flex-1 py-2.5 rounded-lg border border-destructive text-xs font-bold bg-transparent text-destructive hover:bg-destructive/10 transition-all cursor-pointer"
                   >
                     Delete Pupil
@@ -985,7 +1003,7 @@ export function MyStudents() {
                         <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
                           <span className="font-bold text-neutral">{g.name}</span>
                           <button
-                            onClick={() => handleDeleteGuardian(viewingPupil.id, g.id!)}
+                            onClick={() => promptDeleteGuardian(viewingPupil.id, g.id!, g.name)}
                             className="p-1 hover:bg-destructive/10 rounded text-destructive border-none bg-transparent cursor-pointer"
                             title="Delete Guardian Account"
                           >
@@ -1021,6 +1039,78 @@ export function MyStudents() {
                   Close details
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM PUPIL DELETION */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Pupil Record?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete pupil record <strong className="text-neutral font-bold">{studentToDelete.name}</strong>? All linked guardian relationships and RFID history will be removed.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setStudentToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteStudent}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM GUARDIAN DELETION */}
+      {guardianToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Guardian?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete guardian <strong className="text-neutral font-bold">{guardianToDelete.guardianName}</strong>? They will no longer be authorized for pickup verification.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setGuardianToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteGuardian}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
             </div>
           </div>
         </div>

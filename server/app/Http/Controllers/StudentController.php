@@ -225,7 +225,7 @@ class StudentController extends Controller
      */
     public function indexTeachers()
     {
-        $teachers = Admin::where('role', 'teacher')->with('systemRole')->get();
+        $teachers = Admin::where('role', 'teacher')->with(['systemRole', 'sections.students'])->get();
         return response()->json($teachers, 200);
     }
 
@@ -236,7 +236,9 @@ class StudentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:admins,email|max:255',
+            'email' => 'required|string|email|unique:admins,email|unique:guardians,email|max:255',
+            'phone' => 'required|string|max:255',
+            'gender' => 'required|string|max:255',
             'password' => 'required|string|min:6',
         ]);
 
@@ -251,12 +253,58 @@ class StudentController extends Controller
         $teacher = Admin::create([
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone,
+            'gender' => $request->gender,
             'password' => Hash::make($request->password),
             'role' => 'teacher',
             'role_id' => $teacherRole?->id,
         ]);
 
         return response()->json($teacher, 201);
+    }
+
+    /**
+     * Update the specified teacher.
+     */
+    public function updateTeacher(Request $request, $id)
+    {
+        $teacher = Admin::where('id', $id)->where('role', 'teacher')->first();
+
+        if (!$teacher) {
+            return response()->json([
+                'message' => 'Teacher not found.'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|unique:admins,email,' . $id . '|unique:guardians,email|max:255',
+            'phone' => 'required|string|max:255',
+            'gender' => 'required|string|max:255',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $updateData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'gender' => $request->gender,
+        ];
+
+        if ($request->filled('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        $teacher->update($updateData);
+
+        return response()->json($teacher, 200);
     }
 
     /**
