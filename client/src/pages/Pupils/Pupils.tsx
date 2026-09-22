@@ -13,7 +13,8 @@ import {
   UserPlus,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  GraduationCap
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -306,8 +307,13 @@ export function Pupils() {
       
       {/* Header Panel */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Pupil Management</h1>
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-sm shrink-0">
+            <GraduationCap className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-primary">Pupil Management</h1>
+          </div>
         </div>
         <button
           onClick={handleOpenAdd}
@@ -322,7 +328,7 @@ export function Pupils() {
       <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           {/* Search Box */}
-          <div className="relative w-full md:max-w-xs">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -342,7 +348,7 @@ export function Pupils() {
           </div>
 
           {/* Class Dropdown Filter */}
-          <div className="relative w-full sm:max-w-[180px]">
+          <div className="relative w-full md:w-44 shrink-0">
             <select
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
@@ -358,7 +364,7 @@ export function Pupils() {
           </div>
 
           {/* Teacher Dropdown Filter */}
-          <div className="relative w-full sm:max-w-[180px]">
+          <div className="relative w-full md:w-44 shrink-0">
             <select
               value={teacherFilter}
               onChange={(e) => setTeacherFilter(e.target.value)}
@@ -374,7 +380,7 @@ export function Pupils() {
           </div>
 
           {/* Status Dropdown Filter */}
-          <div className="relative w-full sm:max-w-[150px]">
+          <div className="relative w-full md:w-36 shrink-0">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

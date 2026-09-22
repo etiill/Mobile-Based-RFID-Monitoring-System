@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Link } from "react-router-dom"
 import { 
   Sun,
+  Moon,
   GraduationCap,
   Check,
   X,
@@ -96,12 +97,14 @@ export function TeacherDashboard() {
   const role = user.role || "teacher"
   const displayName = user.name || (role === "admin" ? "Administrator" : "Ms. Garcia")
 
-  // Greeting dynamic based on time of day
-  const getGreeting = () => {
+  // Dynamic Greeting & Sun/Moon icon indicator synced with time
+  const getTimeBasedInfo = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return "Good Morning"
-    if (hour < 18) return "Good Afternoon"
-    return "Good Evening"
+    const isDaytime = hour >= 6 && hour < 18
+    let greeting = "Good Evening"
+    if (hour < 12) greeting = "Good Morning"
+    else if (hour < 18) greeting = "Good Afternoon"
+    return { greeting, isDaytime }
   }
 
   // Format military time to standard 12-hr format
@@ -532,13 +535,19 @@ export function TeacherDashboard() {
       {/* 1. Header Greeting & Status */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
-            <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
-          </div>
+          {getTimeBasedInfo().isDaytime ? (
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
+              <Sun className="h-6 w-6 fill-amber-400 text-amber-500" />
+            </div>
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-950/40 border border-indigo-500/30 shadow-xs shrink-0">
+              <Moon className="h-6 w-6 fill-indigo-400 text-indigo-400" />
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
-                {getGreeting()}, {displayName}!
+                {getTimeBasedInfo().greeting}, {displayName}!
               </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-50 text-sky-600 border border-sky-200/60">
                 Active
@@ -589,9 +598,6 @@ export function TeacherDashboard() {
               <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
                 {totalStudents}
               </span>
-              <span className="text-xs text-muted-foreground font-medium mt-1.5 block">
-                In your class
-              </span>
             </div>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shrink-0">
@@ -614,10 +620,6 @@ export function TeacherDashboard() {
               <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
                 {presentCount}
               </span>
-              <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 mt-1.5">
-                <span>↗</span>
-                <span>{presentPercentage}%</span>
-              </div>
             </div>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shrink-0">
@@ -642,10 +644,6 @@ export function TeacherDashboard() {
               <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
                 {absentCount}
               </span>
-              <div className="flex items-center gap-1 text-xs font-bold text-rose-500 mt-1.5">
-                <span>↗</span>
-                <span>{absentPercentage}%</span>
-              </div>
             </div>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 shrink-0">
@@ -669,9 +667,6 @@ export function TeacherDashboard() {
             <div className="mt-1">
               <span className="text-3xl font-black tracking-tight text-neutral block leading-none">
                 {lateCount}
-              </span>
-              <span className="text-xs text-muted-foreground font-medium mt-1.5 block">
-                {totalStudents > 0 ? ((lateCount / totalStudents) * 100).toFixed(0) : "0"}% delay
               </span>
             </div>
           </div>
