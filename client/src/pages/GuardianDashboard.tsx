@@ -27,7 +27,9 @@ import {
   Sparkles,
   Navigation,
   Globe,
-  Trash2
+  Trash2,
+  Sun,
+  Moon
 } from "lucide-react"
 import ApiHandler from "../api/ApiHandler"
 import { LoadingScreen } from "../components/LoadingScreen"
@@ -159,22 +161,32 @@ export function GuardianDashboard() {
   const parentEmail = user.email || "sarah@fcu.edu"
   const parentPhone = user.phone || "0917 555 0101"
 
-  // Time-based greeting
-  const greeting = useMemo(() => {
+  // Time-based greeting & Daytime/Evening Icon
+  const getTimeBasedInfo = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return "Good Morning"
-    if (hour < 18) return "Good Afternoon"
-    return "Good Evening"
-  }, [])
+    const isDaytime = hour >= 6 && hour < 18
+    let greeting = "Good Evening"
+    if (hour >= 6 && hour < 12) greeting = "Good Morning"
+    else if (hour >= 12 && hour < 18) greeting = "Good Afternoon"
+    return { greeting, isDaytime }
+  }
 
   // Format 12-hour time
   const formatTime12h = (rawTime?: string | null) => {
-    if (!rawTime || rawTime === "--:--") return "--:--"
+    if (!rawTime || rawTime === "--:--" || rawTime === "null") return "--:--"
     if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
       return rawTime
     }
     try {
-      const parts = rawTime.split(":")
+      let timePart = rawTime
+      if (rawTime.includes("T")) {
+        timePart = rawTime.split("T")[1]
+      } else if (rawTime.includes(" ")) {
+        const spaceParts = rawTime.split(" ")
+        timePart = spaceParts[spaceParts.length - 1]
+      }
+
+      const parts = timePart.split(":")
       if (parts.length >= 2) {
         let hours = parseInt(parts[0], 10)
         const minutes = parseInt(parts[1], 10)
@@ -639,9 +651,20 @@ export function GuardianDashboard() {
               <ShieldCheck className="h-3.5 w-3.5" />
               <span>Parent Portal • Filamer Christian University</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-primary dark:text-foreground tracking-tight">
-              {greeting}, {parentName} 👋
-            </h1>
+            <div className="flex items-center gap-3">
+              {getTimeBasedInfo().isDaytime ? (
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200/60 shadow-xs shrink-0">
+                  <Sun className="h-5 w-5 sm:h-6 sm:w-6 fill-amber-400 text-amber-500" />
+                </div>
+              ) : (
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/30 shadow-xs shrink-0">
+                  <Moon className="h-5 w-5 sm:h-6 sm:w-6 fill-indigo-400 text-indigo-500 dark:text-indigo-400" />
+                </div>
+              )}
+              <h1 className="text-2xl md:text-3xl font-black text-primary dark:text-foreground tracking-tight">
+                {getTimeBasedInfo().greeting}, {parentName} 👋
+              </h1>
+            </div>
             <p className="text-xs md:text-sm text-muted-foreground font-semibold">
               Monitoring safety, campus movement, and real-time attendance for your child <strong className="text-primary">{activeChild.name}</strong>.
             </p>
@@ -988,8 +1011,7 @@ export function GuardianDashboard() {
             <div className="p-6 rounded-3xl border border-border bg-card shadow-sm space-y-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">DAYS PRESENT</span>
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-emerald-600">38</span>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">95.0%</span>
+                <span className="text-3xl font-black text-emerald-600">{attendanceHistory.filter(i => i.status === "Present").length}</span>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium">On-time gate check-ins</p>
             </div>
@@ -997,7 +1019,7 @@ export function GuardianDashboard() {
             <div className="p-6 rounded-3xl border border-border bg-card shadow-sm space-y-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">DAYS ABSENT</span>
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-red-500">2</span>
+                <span className="text-3xl font-black text-red-500">{attendanceHistory.filter(i => i.status === "Absent").length}</span>
                 <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">Excused</span>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium">Documented official notices</p>
@@ -1006,7 +1028,7 @@ export function GuardianDashboard() {
             <div className="p-6 rounded-3xl border border-border bg-card shadow-sm space-y-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">DAYS TARDY / LATE</span>
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-amber-500">1</span>
+                <span className="text-3xl font-black text-amber-500">{attendanceHistory.filter(i => i.status === "Late").length}</span>
                 <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">Minimal</span>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium">Arrived after 08:00 AM</p>

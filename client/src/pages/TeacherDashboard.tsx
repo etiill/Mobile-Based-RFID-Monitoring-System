@@ -102,19 +102,27 @@ export function TeacherDashboard() {
     const hour = new Date().getHours()
     const isDaytime = hour >= 6 && hour < 18
     let greeting = "Good Evening"
-    if (hour < 12) greeting = "Good Morning"
-    else if (hour < 18) greeting = "Good Afternoon"
+    if (hour >= 6 && hour < 12) greeting = "Good Morning"
+    else if (hour >= 12 && hour < 18) greeting = "Good Afternoon"
     return { greeting, isDaytime }
   }
 
-  // Format military time to standard 12-hr format
+  // Format military/ISO time to standard 12-hr format
   const formatTime12h = (rawTime?: string | null) => {
-    if (!rawTime || rawTime === "--:--") return "--:--"
+    if (!rawTime || rawTime === "--:--" || rawTime === "null") return "--:--"
     if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
       return rawTime
     }
     try {
-      const parts = rawTime.split(":")
+      let timePart = rawTime
+      if (rawTime.includes("T")) {
+        timePart = rawTime.split("T")[1]
+      } else if (rawTime.includes(" ")) {
+        const spaceParts = rawTime.split(" ")
+        timePart = spaceParts[spaceParts.length - 1]
+      }
+
+      const parts = timePart.split(":")
       if (parts.length >= 2) {
         let hours = parseInt(parts[0], 10)
         const minutes = parseInt(parts[1], 10)
@@ -545,14 +553,9 @@ export function TeacherDashboard() {
             </div>
           )}
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
-                {getTimeBasedInfo().greeting}, {displayName}!
-              </h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-50 text-sky-600 border border-sky-200/60">
-                Active
-              </span>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
+              {getTimeBasedInfo().greeting}, {displayName}!
+            </h1>
             <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-0.5">
               Here's what's happening in your class today.
             </p>

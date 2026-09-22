@@ -116,26 +116,32 @@ export function PickUpLogs() {
   const role = (user.role || "teacher").toLowerCase()
   const displayName = user.name || (role === "admin" ? "Administrator" : "Ms. Garcia")
 
-  // Greeting dynamic based on time of day with matching daytime/evening status
+  // Dynamic Greeting & Sun/Moon icon indicator synced with time
   const getTimeBasedInfo = () => {
     const hour = new Date().getHours()
-    if (hour < 12) {
-      return { greeting: "Good Morning", isDaytime: true }
-    }
-    if (hour < 18) {
-      return { greeting: "Good Afternoon", isDaytime: true }
-    }
-    return { greeting: "Good Evening", isDaytime: false }
+    const isDaytime = hour >= 6 && hour < 18
+    let greeting = "Good Evening"
+    if (hour >= 6 && hour < 12) greeting = "Good Morning"
+    else if (hour >= 12 && hour < 18) greeting = "Good Afternoon"
+    return { greeting, isDaytime }
   }
 
-  // Format military time to standard 12-hr AM/PM format
+  // Format military/ISO time to standard 12-hr AM/PM format
   const formatTime12h = (rawTime?: string | null) => {
-    if (!rawTime || rawTime === "--:--") return "--:--"
+    if (!rawTime || rawTime === "--:--" || rawTime === "null") return "--:--"
     if (rawTime.includes("AM") || rawTime.includes("PM") || rawTime.includes("am") || rawTime.includes("pm")) {
       return rawTime
     }
     try {
-      const parts = rawTime.split(":")
+      let timePart = rawTime
+      if (rawTime.includes("T")) {
+        timePart = rawTime.split("T")[1]
+      } else if (rawTime.includes(" ")) {
+        const spaceParts = rawTime.split(" ")
+        timePart = spaceParts[spaceParts.length - 1]
+      }
+
+      const parts = timePart.split(":")
       if (parts.length >= 2) {
         let hours = parseInt(parts[0], 10)
         const minutes = parseInt(parts[1], 10)
@@ -167,8 +173,19 @@ export function PickUpLogs() {
     if (!timeIn || !timeOut) return "N/A"
     try {
       const parseMinutes = (t: string) => {
-        const parts = t.split(":")
-        return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10)
+        let timePart = t
+        if (t.includes("T")) timePart = t.split("T")[1]
+        else if (t.includes(" ")) {
+          const sp = t.split(" ")
+          timePart = sp[sp.length - 1]
+        }
+        timePart = timePart.replace(/(AM|PM|am|pm)/g, "").trim()
+        const parts = timePart.split(":")
+        let h = parseInt(parts[0], 10) || 0
+        const m = parseInt(parts[1], 10) || 0
+        if (t.toLowerCase().includes("pm") && h < 12) h += 12
+        if (t.toLowerCase().includes("am") && h === 12) h = 0
+        return h * 60 + m
       }
       const m1 = parseMinutes(timeIn)
       const m2 = parseMinutes(timeOut)
@@ -288,15 +305,21 @@ export function PickUpLogs() {
       })
       .sort((a, b) => {
         const getSortScore = (timeStr: string, id: number) => {
-          if (!timeStr || timeStr === "--:--") return -1
+          if (!timeStr || timeStr === "--:--") return id
           try {
-            if (timeStr.includes(":")) {
-              const parts = timeStr.replace(/(AM|PM|am|pm)/g, "").trim().split(":")
+            let t = timeStr
+            if (t.includes("T")) t = t.split("T")[1]
+            else if (t.includes(" ")) {
+              const sp = t.split(" ")
+              t = sp[sp.length - 1]
+            }
+            if (t.includes(":")) {
+              const parts = t.replace(/(AM|PM|am|pm)/g, "").trim().split(":")
               let h = parseInt(parts[0], 10) || 0
               const m = parseInt(parts[1], 10) || 0
               const s = parseInt(parts[2], 10) || 0
-              if (timeStr.toLowerCase().includes("pm") && h < 12) h += 12
-              if (timeStr.toLowerCase().includes("am") && h === 12) h = 0
+              if (t.toLowerCase().includes("pm") && h < 12) h += 12
+              if (t.toLowerCase().includes("am") && h === 12) h = 0
               return h * 3600 + m * 60 + s
             }
           } catch {}
@@ -433,14 +456,9 @@ export function PickUpLogs() {
             </div>
           )}
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
-                {getTimeBasedInfo().greeting}, {displayName}!
-              </h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-50 text-sky-600 border border-sky-200/60">
-                Active
-              </span>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral">
+              {getTimeBasedInfo().greeting}, {displayName}!
+            </h1>
             <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-0.5">
               Here's what's happening in your class today.
             </p>

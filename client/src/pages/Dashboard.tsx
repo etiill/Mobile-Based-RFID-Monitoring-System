@@ -69,8 +69,8 @@ export function AdminDashboard() {
     const hour = new Date().getHours()
     const isDaytime = hour >= 6 && hour < 18
     let greeting = "Good Evening"
-    if (hour < 12) greeting = "Good Morning"
-    else if (hour < 18) greeting = "Good Afternoon"
+    if (hour >= 6 && hour < 12) greeting = "Good Morning"
+    else if (hour >= 12 && hour < 18) greeting = "Good Afternoon"
     return { greeting, isDaytime }
   }
 
