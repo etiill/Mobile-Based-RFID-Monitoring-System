@@ -19,7 +19,8 @@ import {
   Phone,
   Mail,
   GraduationCap,
-  DoorClosed
+  DoorClosed,
+  User
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -278,7 +279,7 @@ export function Registration() {
   // Section Modal & Form State
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false)
   const [editingSectionId, setEditingSectionId] = useState<string | number | null>(null)
-  const [sectionYearLevel, setSectionYearLevel] = useState("K-1")
+  const [sectionYearLevel, setSectionYearLevel] = useState("Nursery")
   const [sectionName, setSectionName] = useState("")
   const [sectionTeacherId, setSectionTeacherId] = useState<string | number>("")
 
@@ -352,7 +353,7 @@ export function Registration() {
   const handleCloseSectionModal = () => {
     setIsSectionModalOpen(false)
     setEditingSectionId(null)
-    setSectionYearLevel("K-1")
+    setSectionYearLevel("Nursery")
     setSectionName("")
     setSectionTeacherId("")
   }
@@ -408,7 +409,10 @@ export function Registration() {
 
   const handleEditSectionClick = (sec: Section) => {
     setEditingSectionId(sec.id)
-    setSectionYearLevel(sec.year_level)
+    let yl = sec.year_level
+    if (yl === "K-1" || yl === "K1") yl = "Kindergarten 1"
+    if (yl === "K-2" || yl === "K2") yl = "Kindergarten 2"
+    setSectionYearLevel(yl || "Nursery")
     setSectionName(sec.section_name)
     setSectionTeacherId(sec.teacher_id || "")
     setIsSectionModalOpen(true)
@@ -1057,7 +1061,7 @@ export function Registration() {
           <button
             onClick={() => {
               setEditingSectionId(null)
-              setSectionYearLevel("K-1")
+              setSectionYearLevel("Nursery")
               setSectionName("")
               setSectionTeacherId("")
               setIsSectionModalOpen(true)
@@ -1595,52 +1599,116 @@ export function Registration() {
                 </div>
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-                  {sections.map((sec) => (
-                    <div key={sec.id} className="rounded-2xl border border-border bg-card shadow-sm p-5 flex items-center justify-between transition-all hover:shadow-md hover:border-border/80">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold">
-                          {sec.year_level.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-primary dark:text-foreground">
-                            {sec.year_level} - {sec.section_name}
-                          </h3>
-                          <div className="mt-2.5">
-                            {sec.teacher ? (
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                                  Class Teacher:
-                                </span>
-                                <span className="text-xs font-semibold text-neutral">
-                                  {sec.teacher.name}
-                                </span>
+                  {[...sections]
+                    .filter((sec) =>
+                      sec.year_level.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      sec.section_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (sec.teacher && sec.teacher.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .sort((a, b) => {
+                      const getPriority = (yl: string) => {
+                        const y = (yl || "").toLowerCase()
+                        if (y.includes("nursery")) return 1
+                        if (y.includes("k-1") || y.includes("kindergarten 1") || y.includes("kinder 1") || y === "k1") return 2
+                        if (y.includes("k-2") || y.includes("kindergarten 2") || y.includes("kinder 2") || y === "k2") return 3
+                        if (y.includes("grade 1") || y === "g1") return 4
+                        if (y.includes("grade 2") || y === "g2") return 5
+                        return 10
+                      }
+                      const pA = getPriority(a.year_level)
+                      const pB = getPriority(b.year_level)
+                      if (pA !== pB) return pA - pB
+                      return a.section_name.localeCompare(b.section_name)
+                    })
+                    .map((sec) => {
+                      const getMeta = (yl: string) => {
+                        const y = (yl || "").toLowerCase()
+                        if (y.includes("nursery")) {
+                          return { code: "N", title: "Nursery", bg: "bg-blue-700 text-white" }
+                        } else if (y.includes("k-1") || y.includes("kindergarten 1") || y.includes("kinder 1") || y === "k1") {
+                          return { code: "K1", title: "Kindergarten 1", bg: "bg-blue-600 text-white" }
+                        } else if (y.includes("k-2") || y.includes("kindergarten 2") || y.includes("kinder 2") || y === "k2") {
+                          return { code: "K2", title: "Kindergarten 2", bg: "bg-emerald-600 text-white" }
+                        } else if (y.includes("grade 1") || y === "g1") {
+                          return { code: "G1", title: "Grade 1", bg: "bg-purple-600 text-white" }
+                        } else if (y.includes("grade 2") || y === "g2") {
+                          return { code: "G2", title: "Grade 2", bg: "bg-indigo-600 text-white" }
+                        }
+                        return { code: yl ? yl.substring(0, 2).toUpperCase() : "SEC", title: yl || "Section", bg: "bg-primary text-white" }
+                      }
+
+                      const meta = getMeta(sec.year_level)
+
+                      return (
+                        <div
+                          key={sec.id}
+                          className="rounded-3xl border border-border bg-card shadow-sm p-5 space-y-4 transition-all hover:shadow-md hover:border-border/80 text-neutral flex flex-col justify-between"
+                        >
+                          {/* Card Header: Circle Badge + Year Level Title + Actions */}
+                          <div className="flex items-center justify-between border-b border-border/50 pb-3.5">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-12 w-12 items-center justify-center rounded-full ${meta.bg} font-black text-base shrink-0 select-none shadow-sm`}
+                              >
+                                {meta.code}
                               </div>
-                            ) : (
-                              <span className="inline-flex rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 border border-amber-100 dark:border-amber-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
-                                Unassigned
-                              </span>
-                            )}
+                              <h3 className="text-base font-extrabold text-primary dark:text-foreground">
+                                {meta.title}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleEditSectionClick(sec)}
+                                className="p-1.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
+                                title="Edit Section"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => promptDeleteSection(sec.id, `${sec.year_level} - ${sec.section_name}`)}
+                                className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
+                                title="Remove Section"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Shaded Content Box: Section at top, Teacher at bottom */}
+                          <div className="rounded-2xl bg-tertiary/40 border border-border/60 p-4 space-y-3.5">
+                            {/* Top: Section */}
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                <Users className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                  Section
+                                </div>
+                                <div className="text-xs sm:text-sm font-extrabold text-neutral dark:text-foreground">
+                                  {sec.section_name}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bottom: Teacher */}
+                            <div className="flex items-center gap-3 border-t border-border/40 pt-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                                <User className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                  Teacher
+                                </div>
+                                <div className="text-xs sm:text-sm font-extrabold text-primary dark:text-foreground">
+                                  {sec.teacher ? sec.teacher.name : "Unassigned"}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleEditSectionClick(sec)}
-                          className="p-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
-                          title="Edit Section"
-                        >
-                          <Pencil className="h-4.5 w-4.5" />
-                        </button>
-                        <button
-                          onClick={() => promptDeleteSection(sec.id, `${sec.year_level} - ${sec.section_name}`)}
-                          className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
-                          title="Remove Section"
-                        >
-                          <Trash2 className="h-4.5 w-4.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })}
                 </div>
               )}
             </div>
@@ -2203,9 +2271,9 @@ export function Registration() {
                   onChange={(e) => setSectionYearLevel(e.target.value)}
                   className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
                 >
-                  <option value="K-1">K-1</option>
-                  <option value="K-2">K-2</option>
                   <option value="Nursery">Nursery</option>
+                  <option value="Kindergarten 1">Kindergarten 1</option>
+                  <option value="Kindergarten 2">Kindergarten 2</option>
                   <option value="Grade 1">Grade 1</option>
                   <option value="Grade 2">Grade 2</option>
                 </select>
