@@ -13,7 +13,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  Eye,
+  AlertTriangle
 } from "lucide-react"
 import ApiHandler from "../../api/ApiHandler"
 import { toast } from "../../components/ui/toast"
@@ -24,6 +26,7 @@ interface Guardian {
   name: string
   relation: string
   phone: string
+  email?: string
 }
 
 interface Student {
@@ -173,6 +176,53 @@ export function Registration() {
   const [isGuardianModalOpen, setIsGuardianModalOpen] = useState(false)
   const [selectedStudentId, setSelectedStudentId] = useState<string | number | null>(null)
   const [editingStudentId, setEditingStudentId] = useState<string | number | null>(null)
+
+  // View Pupil Detail Modal State
+  const [isViewPupilModalOpen, setIsViewPupilModalOpen] = useState(false)
+  const [viewingPupil, setViewingPupil] = useState<Student | null>(null)
+
+  // View Guardian Detail Modal State
+  const [isViewGuardianModalOpen, setIsViewGuardianModalOpen] = useState(false)
+  const [viewingGuardianData, setViewingGuardianData] = useState<{
+    guardian: Guardian
+    student: Student
+  } | null>(null)
+
+  // Edit Guardian Modal State
+  const [isEditGuardianModalOpen, setIsEditGuardianModalOpen] = useState(false)
+  const [editingGuardianStudentId, setEditingGuardianStudentId] = useState<string | number | null>(null)
+  const [editingGuardianId, setEditingGuardianId] = useState<string | number | null>(null)
+  const [editGuardianName, setEditGuardianName] = useState("")
+  const [editGuardianRelation, setEditGuardianRelation] = useState("Mother")
+  const [editGuardianPhone, setEditGuardianPhone] = useState("")
+  const [editGuardianEmail, setEditGuardianEmail] = useState("")
+  const [editGuardianPassword, setEditGuardianPassword] = useState("")
+  const [editGuardianConfirmPassword, setEditGuardianConfirmPassword] = useState("")
+
+  // Guardian Delete Confirmation Modal State
+  const [guardianToDelete, setGuardianToDelete] = useState<{
+    studentId: string | number
+    guardianId: string | number
+    guardianName: string
+  } | null>(null)
+
+  // Multiple Guardians Dropdown State
+  const [openGuardianDropdownId, setOpenGuardianDropdownId] = useState<string | number | null>(null)
+  const [isInlineAddGuardianOpen, setIsInlineAddGuardianOpen] = useState(false)
+
+  const handleOpenViewPupil = (student: Student) => {
+    setViewingPupil(student)
+    setIsViewPupilModalOpen(true)
+  }
+
+  const handleCloseViewPupil = () => {
+    setIsViewPupilModalOpen(false)
+    setViewingPupil(null)
+  }
+
+  const promptDeleteGuardian = (studentId: string | number, guardianId: string | number, guardianName: string) => {
+    setGuardianToDelete({ studentId, guardianId, guardianName })
+  }
 
   // Teachers State
   const [teachers, setTeachers] = useState<any[]>([])
@@ -426,20 +476,216 @@ export function Registration() {
     }
   }
 
+  const handleOpenViewGuardian = (guardian: Guardian, student: Student) => {
+    setViewingGuardianData({ guardian, student })
+    setIsViewGuardianModalOpen(true)
+  }
+
+  const handleCloseViewGuardian = () => {
+    setIsViewGuardianModalOpen(false)
+    setViewingGuardianData(null)
+  }
+
+  const handleOpenEditGuardian = (guardian: Guardian, studentId: string | number) => {
+    if (!guardian.id) return
+    setEditingGuardianStudentId(studentId)
+    setEditingGuardianId(guardian.id)
+    setEditGuardianName(guardian.name)
+    setEditGuardianRelation(guardian.relation || "Mother")
+    setEditGuardianPhone(guardian.phone || "")
+    setEditGuardianEmail(guardian.email || "")
+    setEditGuardianPassword("")
+    setEditGuardianConfirmPassword("")
+    setIsEditGuardianModalOpen(true)
+  }
+
+  const handleCloseEditGuardian = () => {
+    setIsEditGuardianModalOpen(false)
+    setEditingGuardianStudentId(null)
+    setEditingGuardianId(null)
+    setEditGuardianName("")
+    setEditGuardianRelation("Mother")
+    setEditGuardianPhone("")
+    setEditGuardianEmail("")
+    setEditGuardianPassword("")
+    setEditGuardianConfirmPassword("")
+  }
+
+  const handleSaveEditGuardian = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingGuardianStudentId || !editingGuardianId || !editGuardianName.trim() || !editGuardianEmail.trim() || !editGuardianPhone.trim()) {
+      toast.add({
+        title: "Validation Error",
+        description: "Please fill in all required guardian fields (Name, Phone & Email).",
+        type: "error",
+      })
+      return
+    }
+
+    if (editGuardianPassword && editGuardianPassword !== editGuardianConfirmPassword) {
+      toast.add({
+        title: "Validation Failed",
+        description: "Passwords do not match.",
+        type: "error",
+      })
+      return
+    }
+
+    const payload: any = {
+      name: editGuardianName,
+      relation: editGuardianRelation,
+      phone: editGuardianPhone,
+      email: editGuardianEmail,
+    }
+
+    if (editGuardianPassword) {
+      payload.password = editGuardianPassword
+    }
+
+    try {
+      const updatedGuardian = await ApiHandler.put<Guardian>(
+        `/students/${editingGuardianStudentId}/guardians/${editingGuardianId}`,
+        payload
+      )
+
+      setStudents(
+        students.map((student) => {
+          if (student.id === editingGuardianStudentId) {
+            return {
+              ...student,
+              guardians: student.guardians.map((g) => (g.id === editingGuardianId ? updatedGuardian : g)),
+            }
+          }
+          return student
+        })
+      )
+
+      if (viewingPupil && viewingPupil.id === editingGuardianStudentId) {
+        setViewingPupil({
+          ...viewingPupil,
+          guardians: viewingPupil.guardians.map((g) => (g.id === editingGuardianId ? updatedGuardian : g)),
+        })
+      }
+
+      if (viewingGuardianData && viewingGuardianData.guardian.id === editingGuardianId) {
+        setViewingGuardianData({
+          ...viewingGuardianData,
+          guardian: updatedGuardian,
+        })
+      }
+
+      toast.add({
+        title: "Guardian Updated",
+        description: `${editGuardianName}'s information updated successfully.`,
+        type: "success",
+      })
+
+      handleCloseEditGuardian()
+    } catch (err: any) {
+      toast.add({
+        title: "Error Updating Guardian",
+        description: err.message || "Failed to update guardian.",
+        type: "error",
+      })
+    }
+  }
+
   const handleCloseStudentModal = () => {
     setIsStudentModalOpen(false)
     setEditingStudentId(null)
     setStudentName("")
     setStudentRfid("")
     setStudentSectionId("")
+    setIsInlineAddGuardianOpen(false)
+    setGuardianName("")
+    setGuardianRelation("Mother")
+    setGuardianPhone("")
+    setGuardianEmail("")
+    setGuardianPassword("")
+    setGuardianConfirmPassword("")
   }
 
-  const handleEditStudentClick = (student: Student) => {
+  const handleEditStudentClick = (student: Student, targetGuardianId?: string | number) => {
     setEditingStudentId(student.id)
+    setSelectedStudentId(student.id)
     setStudentName(student.name)
     setStudentRfid(student.rfid)
     setStudentSectionId(student.section_id || "")
-    setIsStudentModalOpen(true)
+    setIsInlineAddGuardianOpen(false)
+
+    if (targetGuardianId) {
+      const targetG = student.guardians.find(g => g.id === targetGuardianId)
+      if (targetG) {
+        handleOpenEditGuardian(targetG, student.id)
+      } else {
+        setIsStudentModalOpen(true)
+      }
+    } else {
+      setIsStudentModalOpen(true)
+    }
+  }
+
+  const handleAddGuardianFromEditModal = async () => {
+    if (!editingStudentId || !guardianName.trim() || !guardianEmail.trim() || !guardianPassword.trim()) {
+      toast.add({
+        title: "Validation Error",
+        description: "Please fill in all required guardian fields.",
+        type: "error",
+      })
+      return
+    }
+
+    if (guardianPassword !== guardianConfirmPassword) {
+      toast.add({
+        title: "Validation Failed",
+        description: "Passwords do not match.",
+        type: "error",
+      })
+      return
+    }
+
+    try {
+      const response = await ApiHandler.post<Guardian>(`/students/${editingStudentId}/guardians`, {
+        name: guardianName,
+        relation: guardianRelation,
+        phone: guardianPhone,
+        email: guardianEmail,
+        password: guardianPassword,
+      })
+
+      setStudents(
+        students.map((student) => {
+          if (student.id === editingStudentId) {
+            return {
+              ...student,
+              guardians: [...student.guardians, response],
+            }
+          }
+          return student
+        })
+      )
+
+      toast.add({
+        title: "Guardian Added",
+        description: `${guardianName} has been authorized successfully.`,
+        type: "success",
+      })
+
+      // Reset guardian form
+      setGuardianName("")
+      setGuardianRelation("Mother")
+      setGuardianPhone("")
+      setGuardianEmail("")
+      setGuardianPassword("")
+      setGuardianConfirmPassword("")
+      setIsInlineAddGuardianOpen(false)
+    } catch (err: any) {
+      toast.add({
+        title: "Error Adding Guardian",
+        description: err.message || "Failed to add guardian.",
+        type: "error",
+      })
+    }
   }
 
   const handleStudentSubmit = async (e: React.FormEvent) => {
@@ -599,7 +845,9 @@ export function Registration() {
     }
   }
 
-  const handleDeleteGuardian = async (studentId: string | number, guardianId: string | number) => {
+  const handleConfirmDeleteGuardian = async () => {
+    if (!guardianToDelete) return
+    const { studentId, guardianId } = guardianToDelete
     try {
       await ApiHandler.delete(`/students/${studentId}/guardians/${guardianId}`)
 
@@ -626,6 +874,8 @@ export function Registration() {
         description: err.message || "Failed to delete guardian.",
         type: "error",
       })
+    } finally {
+      setGuardianToDelete(null)
     }
   }
 
@@ -695,14 +945,14 @@ export function Registration() {
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
       
-      {/* Header Panel */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
+      {/* Header Panel with Full-Width Title and Top Search Bar */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
+        <div className="flex items-center gap-4 shrink-0">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-sm shrink-0">
             <UserCheck className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-primary">
+            <h1 className="text-2xl font-bold tracking-tight text-primary whitespace-nowrap">
               {activeTab === "students" 
                 ? "Guardian Registration" 
                 : activeTab === "teachers" 
@@ -713,6 +963,28 @@ export function Registration() {
           </div>
         </div>
         
+        {/* Top Search Input Bar for Guardians Tab */}
+        {activeTab === "students" && (
+          <div className="relative flex-1 max-w-xl w-full">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search students by name, grade, or RFID..."
+              className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-3 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-tertiary rounded-full border-none bg-transparent cursor-pointer text-muted-foreground hover:text-neutral transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Dynamic CTA */}
         {activeTab === "teachers" && (
           <button
@@ -740,32 +1012,8 @@ export function Registration() {
         )}
       </div>
 
-
-
       {activeTab === "students" ? (
         <>
-          {/* Search Input Bar */}
-          <div className="flex justify-end w-full">
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search students by name, grade, or RFID..."
-                className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-3 text-xs font-semibold text-neutral outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-tertiary rounded-full border-none bg-transparent cursor-pointer text-muted-foreground hover:text-neutral transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* Main Table for Guardian Registration */}
           {isLoadingStudents ? (
             <div className="min-h-[350px] flex items-center justify-center bg-card border border-border rounded-2xl p-8">
@@ -785,12 +1033,12 @@ export function Registration() {
                 <table className="w-full border-collapse text-left text-xs font-sans">
                   <thead className="sticky top-0 z-20 bg-[#FAFBFD] dark:bg-card border-b border-border shadow-xs backdrop-blur-md">
                     <tr className="border-b border-border bg-tertiary/40 text-muted-foreground font-bold select-none uppercase tracking-wider">
-                      <th className="px-6 py-4 font-bold bg-inherit">Pupil</th>
-                      <th className="px-6 py-4 font-bold bg-inherit">Class & Section</th>
-                      <th className="px-6 py-4 font-bold bg-inherit">RFID Tag</th>
-                      <th className="px-6 py-4 font-bold bg-inherit min-w-[320px]">Authorized Guardians</th>
-                      <th className="px-6 py-4 font-bold text-center bg-inherit">Status</th>
-                      <th className="px-6 py-4 font-bold text-center bg-inherit">Actions</th>
+                      <th className="px-4 py-3.5 font-bold bg-inherit">Pupil</th>
+                      <th className="px-4 py-3.5 font-bold bg-inherit">Class & Section</th>
+                      <th className="px-4 py-3.5 font-bold bg-inherit">RFID Tag</th>
+                      <th className="px-4 py-3.5 font-bold bg-inherit">Authorized Guardians</th>
+                      <th className="px-4 py-3.5 font-bold text-center bg-inherit">Status</th>
+                      <th className="px-4 py-3.5 font-bold text-center bg-inherit">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border font-medium text-neutral">
@@ -812,22 +1060,22 @@ export function Registration() {
 
                         return (
                           <tr key={student.id} className="hover:bg-tertiary/10 transition-colors">
-                            {/* Pupil Column */}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            {/* 1. Pupil Column */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary font-bold">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-xs shrink-0">
                                   {student.name.charAt(0)}
                                 </div>
                                 <div>
-                                  <div className="font-bold text-primary text-sm">{student.name}</div>
+                                  <div className="font-bold text-primary text-xs">{student.name}</div>
                                   <div className="text-[10px] text-muted-foreground font-semibold">ID: S{String(student.id).padStart(3, "0")}</div>
                                 </div>
                               </div>
                             </td>
 
-                            {/* Class & Section Column */}
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col gap-1">
+                            {/* 2. Class & Section Column */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5">
                                 <span className="font-bold text-neutral">
                                   {student.section 
                                     ? `${student.section.year_level} - ${student.section.section_name}`
@@ -842,63 +1090,139 @@ export function Registration() {
                               </div>
                             </td>
 
-                            {/* RFID Tag Column */}
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-tertiary px-3 py-1 text-[11px] font-bold text-muted-foreground select-none">
+                            {/* 3. RFID Tag Column */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-tertiary px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground select-none">
                                 <CreditCard className="h-3 w-3" />
                                 <span>{student.rfid}</span>
                               </div>
                             </td>
 
-                            {/* Authorized Guardians Column */}
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap items-center gap-2">
+                            {/* 4. Authorized Guardians Column */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
                                 {hasGuardians ? (
-                                  student.guardians.map((guardian, gIdx) => (
-                                    <div
-                                      key={gIdx}
-                                      className="group/item inline-flex items-center gap-2 rounded-xl border border-border bg-white dark:bg-card px-3 py-1.5 shadow-xs transition-all hover:border-primary/30"
-                                    >
-                                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-                                        <Users className="h-3 w-3" />
-                                      </div>
-                                      <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-neutral leading-tight">{guardian.name}</span>
-                                        <span className="text-[10px] text-muted-foreground">
-                                          {guardian.relation} • {guardian.phone}
-                                        </span>
-                                      </div>
-                                      <button
-                                        onClick={() => guardian.id && handleDeleteGuardian(student.id, guardian.id)}
-                                        className="p-1 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer ml-1"
-                                        title="Remove Guardian"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
+                                  student.guardians.length === 1 ? (
+                                    /* Single Guardian: Show Name Only + Edit & Remove Buttons */
+                                    <div className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white dark:bg-card px-3 py-1 shadow-xs">
+                                      <span className="text-xs font-bold text-neutral">
+                                        {student.guardians[0].name}
+                                      </span>
+                                      {student.guardians[0].id && (
+                                        <div className="flex items-center gap-0.5">
+                                          <button
+                                            onClick={() => handleOpenViewGuardian(student.guardians[0], student)}
+                                            className="p-1 hover:bg-primary/10 hover:text-primary rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                            title="View Information"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleOpenEditGuardian(student.guardians[0], student.id)}
+                                            className="p-1 hover:bg-primary/10 hover:text-primary rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                            title="Edit Guardian Information"
+                                          >
+                                            <Pencil className="h-3 w-3" />
+                                          </button>
+                                          <button
+                                            onClick={() => promptDeleteGuardian(student.id, student.guardians[0].id!, student.guardians[0].name)}
+                                            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                            title="Remove Guardian"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
-                                  ))
+                                  ) : (
+                                    /* Multiple Guardians: Dropdown */
+                                    <div className="relative">
+                                      <button
+                                        onClick={() =>
+                                          setOpenGuardianDropdownId(
+                                            openGuardianDropdownId === student.id ? null : student.id
+                                          )
+                                        }
+                                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-white dark:bg-card px-3 py-1 text-xs font-bold text-neutral shadow-xs hover:border-primary/40 transition-all cursor-pointer"
+                                      >
+                                        <span>{student.guardians[0].name}</span>
+                                        <span className="rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-bold">
+                                          +{student.guardians.length - 1} more
+                                        </span>
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </button>
+
+                                      {/* Dropdown Menu Popup */}
+                                      {openGuardianDropdownId === student.id && (
+                                        <div className="absolute left-0 top-full mt-1.5 z-40 w-64 rounded-2xl border border-border bg-white dark:bg-card p-2 shadow-xl animate-in fade-in duration-150">
+                                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1 border-b border-border/60 mb-1">
+                                            Authorized Guardians ({student.guardians.length})
+                                          </div>
+                                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                                            {student.guardians.map((g, gIdx) => (
+                                              <div
+                                                key={gIdx}
+                                                className="flex items-center justify-between gap-2 p-2 rounded-xl hover:bg-tertiary/40 transition-colors"
+                                              >
+                                                <div className="flex flex-col overflow-hidden">
+                                                  <span className="text-xs font-bold text-neutral truncate">
+                                                    {g.name}
+                                                  </span>
+                                                  <span className="text-[10px] text-muted-foreground">
+                                                    {g.relation} • {g.phone}
+                                                  </span>
+                                                </div>
+                                                {g.id && (
+                                                  <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                      onClick={() => {
+                                                        setOpenGuardianDropdownId(null)
+                                                        handleOpenViewGuardian(g, student)
+                                                      }}
+                                                      className="p-1 hover:bg-primary/10 hover:text-primary rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                                      title="View Information"
+                                                    >
+                                                      <Eye className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                      onClick={() => {
+                                                        setOpenGuardianDropdownId(null)
+                                                        handleOpenEditGuardian(g, student.id)
+                                                      }}
+                                                      className="p-1 hover:bg-primary/10 hover:text-primary rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                                      title="Edit Guardian Information"
+                                                    >
+                                                      <Pencil className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                      onClick={() => {
+                                                        setOpenGuardianDropdownId(null)
+                                                        promptDeleteGuardian(student.id, g.id!, g.name)
+                                                      }}
+                                                      className="p-1 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors border-none bg-transparent cursor-pointer"
+                                                      title="Remove Guardian"
+                                                    >
+                                                      <X className="h-3 w-3" />
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
                                 ) : (
-                                  <span className="text-xs text-muted-foreground italic mr-2">
+                                  <span className="text-xs text-muted-foreground italic">
                                     No guardian linked
                                   </span>
                                 )}
-                                
-                                <button
-                                  onClick={() => {
-                                    setSelectedStudentId(student.id)
-                                    setIsGuardianModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary transition-all cursor-pointer whitespace-nowrap"
-                                  title="Add Authorized Guardian"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                  <span>Add Guardian</span>
-                                </button>
                               </div>
                             </td>
 
-                            {/* Status Column */}
-                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {/* 5. Status Column (Beside Actions) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center">
                               {hasGuardians ? (
                                 <span className="inline-flex rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 px-2.5 py-0.5 text-[9px] font-bold select-none uppercase">
                                   Authorized ({student.guardians.length})
@@ -910,19 +1234,26 @@ export function Registration() {
                               )}
                             </td>
 
-                            {/* Actions Column */}
-                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {/* 6. Actions Column */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <button
+                                  onClick={() => handleOpenViewPupil(student)}
+                                  className="p-1.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
+                                  title="View Details"
+                                >
+                                  <Eye className="h-4 w-4 text-primary" />
+                                </button>
+                                <button
                                   onClick={() => handleEditStudentClick(student)}
-                                  className="p-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
-                                  title="Edit Student"
+                                  className="p-1.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer hover:bg-tertiary rounded-lg border-none bg-transparent"
+                                  title="Edit Student & Guardians"
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteStudent(student.id)}
-                                  className="p-2 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
+                                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer hover:bg-destructive/10 rounded-lg border-none bg-transparent"
                                   title="Delete Student"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1149,13 +1480,13 @@ export function Registration() {
         </div>
       </footer>
 
-      {/* MODAL: ADD STUDENT */}
+      {/* MODAL: ADD / EDIT STUDENT */}
       {isStudentModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral max-h-[90vh] overflow-y-auto scrollbar-thin">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">
-                {editingStudentId ? "Edit Student Details" : "Register New Pupils"}
+                {editingStudentId ? "Edit Pupil Details & Guardians" : "Register New Pupils"}
               </h2>
               <button 
                 onClick={handleCloseStudentModal}
@@ -1165,7 +1496,7 @@ export function Registration() {
               </button>
             </div>
             
-            <form onSubmit={handleStudentSubmit} className="space-y-4 mt-4">
+            <form onSubmit={handleStudentSubmit} className="space-y-4 mt-4 font-sans">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-neutral/80">Pupils Name</label>
                 <input
@@ -1173,7 +1504,7 @@ export function Registration() {
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
                   placeholder="e.g. Emma Johnson"
-                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
                   required
                 />
               </div>
@@ -1183,7 +1514,7 @@ export function Registration() {
                 <select
                   value={studentSectionId}
                   onChange={(e) => setStudentSectionId(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all cursor-pointer"
                   required
                 >
                   <option value="">-- Select Class Section --</option>
@@ -1202,24 +1533,188 @@ export function Registration() {
                   value={studentRfid}
                   onChange={(e) => setStudentRfid(e.target.value)}
                   placeholder="e.g. 001234"
-                  className="w-full rounded-lg border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
                   required
                 />
               </div>
+
+              {/* Show Linked Guardians & Add Guardian Section if editing */}
+              {editingStudentId && (() => {
+                const currentStudent = students.find(s => s.id === editingStudentId)
+                const guardians = currentStudent?.guardians || []
+
+                return (
+                  <div className="pt-4 border-t border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold text-primary uppercase tracking-wider">
+                        Authorized Guardians ({guardians.length})
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsInlineAddGuardianOpen(!isInlineAddGuardianOpen)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>{isInlineAddGuardianOpen ? "Close Add Form" : "Add Guardian"}</span>
+                      </button>
+                    </div>
+
+                    {/* List of current guardians */}
+                    {guardians.length > 0 ? (
+                      <div className="space-y-2">
+                        {guardians.map((g, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl border border-border bg-tertiary/20"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-neutral">{g.name}</span>
+                                <span className="rounded-full bg-emerald-50 text-emerald-600 px-2 py-0.5 text-[9px] font-bold border border-emerald-100 uppercase select-none">
+                                  {g.relation}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-semibold">
+                                Phone: {g.phone} {g.email ? `• Email: ${g.email}` : ""}
+                              </div>
+                            </div>
+                            {g.id && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenViewGuardian(g, currentStudent!)}
+                                  className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-lg border-none bg-transparent cursor-pointer"
+                                  title="View Information"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditGuardian(g, editingStudentId!)}
+                                  className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-lg border-none bg-transparent cursor-pointer"
+                                  title="Edit Guardian Information"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => promptDeleteGuardian(editingStudentId!, g.id!, g.name)}
+                                  className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-lg border-none bg-transparent cursor-pointer"
+                                  title="Remove Guardian"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 border border-dashed border-border rounded-2xl text-center text-xs text-muted-foreground font-semibold">
+                        No authorized guardians linked to this pupil yet.
+                      </div>
+                    )}
+
+                    {/* Inline Form to Add Guardian */}
+                    {isInlineAddGuardianOpen && (
+                      <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 space-y-3 animate-in fade-in duration-200 mt-2">
+                        <h4 className="text-xs font-bold text-primary">New Authorized Guardian Details</h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Full Name</label>
+                            <input
+                              type="text"
+                              value={guardianName}
+                              onChange={(e) => setGuardianName(e.target.value)}
+                              placeholder="e.g. Maria Reyes"
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Relationship</label>
+                            <select
+                              value={guardianRelation}
+                              onChange={(e) => setGuardianRelation(e.target.value)}
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary cursor-pointer"
+                            >
+                              <option value="Mother">Mother</option>
+                              <option value="Father">Father</option>
+                              <option value="Grandparent">Grandparent</option>
+                              <option value="Aunt/Uncle">Aunt/Uncle</option>
+                              <option value="Authorized Representative">Authorized Representative</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Phone Number</label>
+                            <input
+                              type="text"
+                              value={guardianPhone}
+                              onChange={(e) => setGuardianPhone(e.target.value)}
+                              placeholder="e.g. 0917 123 4567"
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Email Address</label>
+                            <input
+                              type="email"
+                              value={guardianEmail}
+                              onChange={(e) => setGuardianEmail(e.target.value)}
+                              placeholder="e.g. maria@fcu.edu"
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Password</label>
+                            <input
+                              type="password"
+                              value={guardianPassword}
+                              onChange={(e) => setGuardianPassword(e.target.value)}
+                              placeholder="Set login password"
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-neutral">Confirm Password</label>
+                            <input
+                              type="password"
+                              value={guardianConfirmPassword}
+                              onChange={(e) => setGuardianConfirmPassword(e.target.value)}
+                              placeholder="Confirm login password"
+                              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={handleAddGuardianFromEditModal}
+                            className="px-4 py-2 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+                          >
+                            Save Guardian
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleCloseStudentModal}
-                  className="flex-1 py-2.5 rounded-lg border border-border text-xs font-bold bg-transparent text-muted-foreground hover:bg-tertiary transition-all cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold bg-transparent text-muted-foreground hover:bg-tertiary transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-lg bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
                 >
-                  {editingStudentId ? "Update Student" : "Save Student"}
+                  {editingStudentId ? "Save Pupil Details" : "Save Student"}
                 </button>
               </div>
             </form>
@@ -1557,6 +2052,389 @@ export function Registration() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VIEW PUPIL INFORMATION DETAILS (Matches Reference Image) */}
+      {isViewPupilModalOpen && viewingPupil && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border/60">
+              <h2 className="text-base font-bold text-primary">Pupil Information Details</h2>
+              <button 
+                onClick={handleCloseViewPupil}
+                className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="space-y-5 mt-4 font-sans text-xs">
+              
+              {/* Pupil Details Card */}
+              <div className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-tertiary/20">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold text-base">
+                  {viewingPupil.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-primary leading-snug">{viewingPupil.name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-muted-foreground font-semibold text-xs">
+                    <span>ID: S{String(viewingPupil.id).padStart(3, "0")}</span>
+                    <span>•</span>
+                    <span>Grade: {viewingPupil.section?.year_level || viewingPupil.grade.replace("Grade: ", "") || "K-1"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Class & Class Teacher Details */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  CLASS & CLASS TEACHER DETAILS
+                </h4>
+                <div className="rounded-2xl border border-border/80 p-4 bg-white dark:bg-card space-y-3">
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2.5">
+                    <span className="text-muted-foreground font-semibold">Assigned Section:</span>
+                    <span className="font-bold text-neutral">
+                      {viewingPupil.section 
+                        ? `${viewingPupil.section.year_level} - ${viewingPupil.section.section_name}` 
+                        : viewingPupil.grade.replace("Grade: ", "") || "Unassigned"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-semibold">Class Teacher:</span>
+                    <span className="font-bold text-neutral">
+                      {viewingPupil.section?.teacher?.name || "Unassigned"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* RFID Tracking Code */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  RFID TRACKING CODE
+                </h4>
+                <div className="flex items-center gap-3 rounded-2xl border border-border/80 p-3.5 bg-white dark:bg-card font-mono font-bold text-neutral text-xs">
+                  <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>{viewingPupil.rfid}</span>
+                </div>
+              </div>
+
+              {/* Authorized Guardians */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  AUTHORIZED GUARDIANS ({viewingPupil.guardians.length})
+                </h4>
+                {viewingPupil.guardians.length === 0 ? (
+                  <div className="p-4 border border-dashed border-border rounded-2xl text-center text-muted-foreground font-semibold">
+                    No authorized guardians associated with this pupil.
+                  </div>
+                ) : (
+                  <div className="max-h-[175px] overflow-y-auto scrollbar-thin space-y-2.5 pr-1">
+                    {viewingPupil.guardians.map((g, idx) => (
+                      <div key={idx} className="rounded-2xl border border-border/80 p-3.5 bg-white dark:bg-card space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-neutral text-sm">{g.name}</span>
+                          <span className="rounded-full bg-emerald-50 text-emerald-600 px-2.5 py-0.5 text-[9px] font-bold border border-emerald-100 uppercase select-none tracking-wider">
+                            {g.relation}
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground font-semibold text-[11px]">
+                          Phone: {g.phone}
+                        </div>
+                        {g.email && (
+                          <div className="text-muted-foreground font-semibold text-[11px] truncate">
+                            Email: {g.email}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end pt-3 border-t border-border/60">
+                <button
+                  onClick={handleCloseViewPupil}
+                  className="px-6 py-2.5 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+                >
+                  Close Detail
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VIEW AUTHORIZED GUARDIAN DETAILS */}
+      {isViewGuardianModalOpen && viewingGuardianData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border/60">
+              <h2 className="text-base font-bold text-primary">Authorized Guardian Details</h2>
+              <button 
+                onClick={handleCloseViewGuardian}
+                className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="space-y-5 mt-4 font-sans text-xs">
+              
+              {/* Guardian Card */}
+              <div className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-tertiary/20">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 shrink-0 select-none font-bold text-base">
+                  {viewingGuardianData.guardian.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-primary leading-snug">{viewingGuardianData.guardian.name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-muted-foreground font-semibold text-xs">
+                    <span className="rounded-full bg-emerald-50 text-emerald-600 px-2 py-0.5 text-[10px] font-bold border border-emerald-100 uppercase select-none">
+                      {viewingGuardianData.guardian.relation || "Guardian"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guardian Contact Information */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  GUARDIAN CONTACT DETAILS
+                </h4>
+                <div className="rounded-2xl border border-border/80 p-4 bg-white dark:bg-card space-y-3">
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2.5">
+                    <span className="text-muted-foreground font-semibold">Phone Number:</span>
+                    <span className="font-bold text-neutral">{viewingGuardianData.guardian.phone || "Not provided"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-semibold">Email Address:</span>
+                    <span className="font-bold text-neutral">{viewingGuardianData.guardian.email || "Not provided"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Linked Pupil Information */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  LINKED PUPIL / STUDENT
+                </h4>
+                <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3.5 bg-white dark:bg-card text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                      {viewingGuardianData.student.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-primary">{viewingGuardianData.student.name}</div>
+                      <div className="text-[10px] text-muted-foreground">ID: S{String(viewingGuardianData.student.id).padStart(3, "0")}</div>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold border border-primary/20">
+                    RFID: {viewingGuardianData.student.rfid}
+                  </span>
+                </div>
+              </div>
+
+              {/* Pickup Status */}
+              <div className="p-3.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-3 text-xs">
+                <UserCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold text-emerald-700 dark:text-emerald-400">Verified Pickup Authorization</div>
+                  <div className="text-[10px] text-muted-foreground font-semibold">Authorized to scan RFID QR for student check-out.</div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const { guardian, student } = viewingGuardianData
+                    handleCloseViewGuardian()
+                    handleOpenEditGuardian(guardian, student.id)
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-primary text-xs font-bold text-primary hover:bg-primary/10 transition-all cursor-pointer bg-transparent flex items-center justify-center gap-1.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span>Edit Guardian Info</span>
+                </button>
+                <button
+                  onClick={handleCloseViewGuardian}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT AUTHORIZED GUARDIAN ONLY */}
+      {isEditGuardianModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border/60">
+              <div>
+                <h2 className="text-base font-bold text-primary">Edit Authorized Guardian</h2>
+                <p className="text-[11px] text-muted-foreground font-semibold">Update contact details and credentials for {editGuardianName}</p>
+              </div>
+              <button 
+                onClick={handleCloseEditGuardian}
+                className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEditGuardian} className="space-y-4 mt-4 font-sans text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Full Name</label>
+                <input
+                  type="text"
+                  value={editGuardianName}
+                  onChange={(e) => setEditGuardianName(e.target.value)}
+                  placeholder="e.g. Maria Reyes"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Relationship</label>
+                <select
+                  value={editGuardianRelation}
+                  onChange={(e) => setEditGuardianRelation(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all cursor-pointer"
+                >
+                  <option value="Mother">Mother</option>
+                  <option value="Father">Father</option>
+                  <option value="Grandparent">Grandparent</option>
+                  <option value="Aunt/Uncle">Aunt/Uncle</option>
+                  <option value="Authorized Representative">Authorized Representative</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Phone Number</label>
+                <input
+                  type="text"
+                  value={editGuardianPhone}
+                  onChange={(e) => setEditGuardianPhone(e.target.value)}
+                  placeholder="e.g. 0917 123 4567"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Email Address</label>
+                <input
+                  type="email"
+                  value={editGuardianEmail}
+                  onChange={(e) => setEditGuardianEmail(e.target.value)}
+                  placeholder="e.g. maria@fcu.edu"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">New Password (Optional)</label>
+                <input
+                  type="password"
+                  value={editGuardianPassword}
+                  onChange={(e) => setEditGuardianPassword(e.target.value)}
+                  placeholder="Leave blank to keep existing password"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral/80">Confirm Password</label>
+                <input
+                  type="password"
+                  value={editGuardianConfirmPassword}
+                  onChange={(e) => setEditGuardianConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full rounded-xl border border-border bg-tertiary px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-primary transition-all font-sans"
+                />
+                {editGuardianConfirmPassword && (
+                  <div className="text-[10px] font-bold pt-1">
+                    {editGuardianPassword === editGuardianConfirmPassword ? (
+                      <span className="text-emerald-500">✓ Passwords match</span>
+                    ) : (
+                      <span className="text-red-500">✗ Passwords do not match</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={handleCloseEditGuardian}
+                  className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold bg-transparent text-muted-foreground hover:bg-tertiary transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editGuardianPassword !== editGuardianConfirmPassword}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none disabled:opacity-50"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM GUARDIAN DELETION */}
+      {guardianToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-card p-6 shadow-2xl border border-border animate-in scale-in duration-200 text-neutral space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Remove Guardian?</h3>
+                <p className="text-xs text-muted-foreground">This action requires confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral/80 font-medium leading-relaxed">
+              Are you sure you want to permanently delete authorized guardian <strong className="text-neutral font-bold">{guardianToDelete.guardianName}</strong>? They will no longer be authorized for pickup verification.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setGuardianToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-tertiary transition-all cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteGuardian}
+                className="flex-1 py-2.5 rounded-xl bg-destructive text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer border-none"
+              >
+                Permanently Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

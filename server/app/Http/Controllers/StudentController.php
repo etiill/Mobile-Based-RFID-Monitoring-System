@@ -141,6 +141,58 @@ class StudentController extends Controller
     }
 
     /**
+     * Update the specified guardian for a student.
+     */
+    public function updateGuardian(Request $request, $studentId, $guardianId)
+    {
+        $student = Student::find($studentId);
+
+        if (!$student) {
+            return response()->json([
+                'message' => 'Student not found.'
+            ], 404);
+        }
+
+        $guardian = Guardian::where('id', $guardianId)->where('student_id', $studentId)->first();
+
+        if (!$guardian) {
+            return response()->json([
+                'message' => 'Guardian not found.'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'relation' => 'required|string|max:255',
+            'phone' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:guardians,email,' . $guardianId . '|unique:admins,email',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $updateData = [
+            'name' => $request->name,
+            'relation' => $request->relation,
+            'phone' => $request->phone,
+            'email' => $request->email,
+        ];
+
+        if ($request->filled('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        $guardian->update($updateData);
+
+        return response()->json($guardian, 200);
+    }
+
+    /**
      * Remove the specified guardian from storage.
      */
     public function destroyGuardian($studentId, $guardianId)

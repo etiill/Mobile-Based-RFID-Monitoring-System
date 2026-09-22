@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/students/{id}', [StudentController::class, 'update']);
     Route::delete('/students/{id}', [StudentController::class, 'destroy']);
     Route::post('/students/{studentId}/guardians', [StudentController::class, 'storeGuardian']);
+    Route::put('/students/{studentId}/guardians/{guardianId}', [StudentController::class, 'updateGuardian']);
     Route::delete('/students/{studentId}/guardians/{guardianId}', [StudentController::class, 'destroyGuardian']);
 
     // Teacher CRUD Management
