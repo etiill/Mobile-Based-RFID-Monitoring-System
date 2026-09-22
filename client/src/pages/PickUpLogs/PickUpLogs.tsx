@@ -5,7 +5,6 @@ import {
   Search, 
   Calendar as CalendarIcon, 
   ShieldCheck, 
-  Sparkles, 
   CheckCircle2, 
   UserCheck, 
   Clock, 
@@ -692,36 +691,9 @@ export function PickUpLogs() {
 
         </div>
 
-        {/* RIGHT COLUMN: Safe Pickups Trust Card & Awaiting Pickup Summary */}
+        {/* RIGHT COLUMN: Awaiting Pickup Summary */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* Trust Card */}
-          <div className="rounded-3xl bg-sky-50/70 border border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/30 p-8 shadow-xs flex flex-col items-center justify-center text-center space-y-4">
-            
-            {/* Circular Happy Child Badge */}
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-sky-500 shadow-sm border border-sky-100 dark:bg-slate-900">
-              <Sparkles className="h-8 w-8" />
-            </div>
-
-            {/* Headline */}
-            <h3 className="text-lg font-black text-neutral tracking-tight">
-              Safe pickups, Happy kids! ❤️
-            </h3>
-
-            {/* Body Text */}
-            <p className="text-xs text-muted-foreground font-medium leading-relaxed max-w-xs">
-              Every child is safely surrendered only to biometric or authorized guardians registered in FCU Kindergarten Database.
-            </p>
-
-            {/* Bottom Pill Badge */}
-            <div className="pt-2">
-              <span className="inline-flex items-center px-5 py-2 rounded-full text-xs font-black bg-white border border-sky-200/80 text-sky-700 dark:bg-slate-900 dark:text-sky-400 shadow-xs tracking-wide">
-                RFID & Card Verified
-              </span>
-            </div>
-
-          </div>
-
           {/* Awaiting Pickup Widget (Live Class Context) */}
           <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
