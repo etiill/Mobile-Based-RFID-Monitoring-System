@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\Attendance;
 use App\Models\CheckoutToken;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -124,7 +125,7 @@ class AttendanceController extends Controller
             $attendance->load('student.guardians');
         }
 
-        $smsLogs = $this->generateSmsLogs($student, 'checked IN', $time, $attendance->status);
+        $smsLogs = SmsService::sendAttendanceAlert($student, 'checked IN', $time, $attendance->status);
 
         return response()->json([
             'message' => "Student {$student->name} checked IN successfully.",
@@ -301,7 +302,7 @@ class AttendanceController extends Controller
         ]);
 
         $student = $checkoutToken->student;
-        $smsLogs = $this->generateSmsLogs($student, 'checked OUT', $serverTime, 'Checked Out');
+        $smsLogs = SmsService::sendAttendanceAlert($student, 'checked OUT', $serverTime, 'Checked Out');
 
         return response()->json([
             'message' => "Pickup confirmed! Student {$student->name} checked OUT successfully.",
@@ -317,19 +318,7 @@ class AttendanceController extends Controller
      */
     private function generateSmsLogs($student, $actionWord, $time, $status)
     {
-        $smsLogs = [];
-        $formattedTime = date('h:i A', strtotime($time));
-        foreach ($student->guardians as $guardian) {
-            $message = "FCU Attendance Alert: {$student->name} has {$actionWord} at {$formattedTime}. Status: {$status}.";
-            $smsLogs[] = [
-                'guardian_name' => $guardian->name,
-                'phone' => $guardian->phone,
-                'relation' => $guardian->relation,
-                'message' => $message,
-                'sent_at' => date('Y-m-d H:i:s'),
-            ];
-        }
-        return $smsLogs;
+        return SmsService::sendAttendanceAlert($student, $actionWord, $time, $status);
     }
 
     /**
@@ -387,4 +376,41 @@ class AttendanceController extends Controller
             'message' => 'Gate scan logs cleared successfully.'
         ], 200);
     }
+
+    /**
+     * Check current SMS Gateway configuration and live credit balance.
+     */
+    public function smsGatewayStatus()
+    {
+        return response()->json(SmsService::getStatus(), 200);
+    }
+
+    /**
+     * Send a single manual test SMS to verify gateway connectivity.
+     */
+    public function sendTestSms(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'phone'   => 'required|string|max:50',
+            'message' => 'nullable|string|max:300',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $testMessage = $request->message ?: "FCU Attendance Alert: SMS Gateway test successful! System is ready to notify guardians upon student arrival.";
+        $result = SmsService::send($request->phone, $testMessage);
+
+        return response()->json([
+            'message' => $result['status'] === 'sent' 
+                ? 'Test SMS sent successfully!' 
+                : ($result['status'] === 'simulated' ? 'Test SMS simulated (demo mode).' : 'Failed to send test SMS.'),
+            'result'  => $result
+        ], 200);
+    }
 }
+

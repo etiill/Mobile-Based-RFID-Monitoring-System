@@ -60,6 +60,10 @@ interface ScanLog {
     phone: string
     relation: string
     message: string
+    status?: 'sent' | 'simulated' | 'failed'
+    provider?: string
+    details?: any
+    error?: string
   }>
 }
 
@@ -130,6 +134,7 @@ export function RfidScan() {
 
   // Connection config
   const readerIP = "192.168.1.105"
+
   const readerPort = "5080"
 
   const simIntervalRef = useRef<any>(null)
@@ -1331,15 +1336,37 @@ export function RfidScan() {
                             )}
                           </td>
                           <td className="px-5 py-3.5">
-                            <div className="space-y-1 max-w-[180px]">
+                            <div className="space-y-1 max-w-[200px]">
                               {log.smsLogs.length === 0 ? (
                                 <span className="text-[9px] text-muted-foreground font-semibold">No active guardians</span>
                               ) : (
                                 log.smsLogs.map((sms, i) => (
-                                  <div key={i} className="flex items-center gap-1 text-[9px] bg-tertiary/30 px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground">
+                                  <div
+                                    key={i}
+                                    title={
+                                      sms.status === 'sent'
+                                        ? `SMS Dispatched via ${sms.provider || 'Gateway'}`
+                                        : sms.status === 'failed'
+                                          ? `Delivery Failed: ${sms.error || sms.details}`
+                                          : 'Simulated Notification (Demo Mode)'
+                                    }
+                                    className={`flex items-center gap-1.5 text-[9px] px-2 py-0.5 rounded border ${
+                                      sms.status === 'sent'
+                                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                                        : sms.status === 'failed'
+                                          ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
+                                          : 'bg-tertiary/40 border-border/60 text-muted-foreground'
+                                    }`}
+                                  >
                                     <Smartphone className="h-2.5 w-2.5 text-primary shrink-0" />
                                     <span className="truncate font-semibold text-[8px]">{sms.guardian_name}: {sms.phone}</span>
-                                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0 ml-auto" />
+                                    {sms.status === 'sent' ? (
+                                      <span className="ml-auto text-[7px] font-bold text-emerald-600 uppercase tracking-wider">SENT</span>
+                                    ) : sms.status === 'failed' ? (
+                                      <span className="ml-auto text-[7px] font-bold text-red-600 uppercase tracking-wider">ERR</span>
+                                    ) : (
+                                      <span className="ml-auto text-[7px] font-bold text-muted-foreground uppercase tracking-wider">DEMO</span>
+                                    )}
                                   </div>
                                 ))
                               )}
@@ -1442,15 +1469,37 @@ export function RfidScan() {
                         )}
                       </td>
                       <td className="px-5 py-3.5">
-                        <div className="space-y-1 max-w-[180px]">
+                        <div className="space-y-1 max-w-[200px]">
                           {log.smsLogs.length === 0 ? (
                             <span className="text-[9px] text-muted-foreground font-semibold">No active guardians</span>
                           ) : (
                             log.smsLogs.map((sms, i) => (
-                              <div key={i} className="flex items-center gap-1 text-[9px] bg-tertiary/30 px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground">
+                              <div
+                                key={i}
+                                title={
+                                  sms.status === 'sent'
+                                    ? `SMS Dispatched via ${sms.provider || 'Gateway'}`
+                                    : sms.status === 'failed'
+                                      ? `Delivery Failed: ${sms.error || sms.details}`
+                                      : 'Simulated Notification (Demo Mode)'
+                                }
+                                className={`flex items-center gap-1.5 text-[9px] px-2 py-0.5 rounded border ${
+                                  sms.status === 'sent'
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                                    : sms.status === 'failed'
+                                      ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
+                                      : 'bg-tertiary/40 border-border/60 text-muted-foreground'
+                                }`}
+                              >
                                 <Smartphone className="h-2.5 w-2.5 text-primary shrink-0" />
                                 <span className="truncate font-semibold text-[8px]">{sms.guardian_name}: {sms.phone}</span>
-                                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0 ml-auto" />
+                                {sms.status === 'sent' ? (
+                                  <span className="ml-auto text-[7px] font-bold text-emerald-600 uppercase tracking-wider">SENT</span>
+                                ) : sms.status === 'failed' ? (
+                                  <span className="ml-auto text-[7px] font-bold text-red-600 uppercase tracking-wider">ERR</span>
+                                ) : (
+                                  <span className="ml-auto text-[7px] font-bold text-muted-foreground uppercase tracking-wider">DEMO</span>
+                                )}
                               </div>
                             ))
                           )}
@@ -1469,4 +1518,4 @@ export function RfidScan() {
   )
 }
 
-export default RfidScan
+export default RfidScan
