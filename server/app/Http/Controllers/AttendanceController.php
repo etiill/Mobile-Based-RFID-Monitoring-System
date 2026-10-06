@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\Attendance;
-use App\Models\CheckoutToken;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -35,8 +34,7 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Process an RFID tag scan event (Student arrival check-in ONLY).
-     * RFID reader ONLY records arrival check-in. Checkouts MUST be completed via Guardian QR code scan.
+     * Process an RFID tag scan event for student arrival or departure.
      */
     public function scan(Request $request)
     {
@@ -70,15 +68,41 @@ class AttendanceController extends Controller
             $time = date('H:i:s');
         }
 
-        // Reject checkout via RFID reader per requirement
+        // Process checkout / departure via RFID reader
         if ($request->direction === 'out') {
+            $existingAttendance = Attendance::where('student_id', $student->id)
+                ->where('date', $date)
+                ->whereNull('time_out')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if (!$existingAttendance) {
+                return response()->json([
+                    'message' => "Student {$student->name} is not currently checked in or has already been checked out.",
+                    'student' => $student,
+                    'attendance' => null,
+                    'direction' => 'out',
+                    'ignored' => true,
+                    'sms_logs' => []
+                ], 200);
+            }
+
+            $existingAttendance->update([
+                'time_out' => $time,
+                'status' => 'Checked Out',
+                'verified_by' => 'RFID Exit Gate',
+            ]);
+
+            $attendance = $existingAttendance->fresh(['student.guardians']);
+            $smsLogs = SmsService::sendAttendanceAlert($student, 'checked OUT', $time, 'Checked Out');
+
             return response()->json([
-                'message' => "RFID Reader only records student arrival. Checkouts must be completed via Guardian QR Code scan.",
+                'message' => "Student {$student->name} checked OUT successfully.",
                 'student' => $student,
-                'attendance' => null,
+                'attendance' => $attendance,
                 'direction' => 'out',
-                'ignored' => true,
-                'sms_logs' => []
+                'ignored' => false,
+                'sms_logs' => $smsLogs
             ], 200);
         }
 
@@ -87,11 +111,11 @@ class AttendanceController extends Controller
             ->where('date', $date)
             ->first();
 
-        // 1. If student has an active check-in (where time_out IS NULL), ignore repeated scans
+        // 1. If student has an active check-in (where time_out IS NULL), ignore repeated arrival scans
         if ($existingAttendance && $existingAttendance->time_out === null) {
             $existingAttendance->load('student.guardians');
             return response()->json([
-                'message' => "Ignored scan. Student {$student->name} is already present/checked in. Waiting for Guardian QR pickup for checkout.",
+                'message' => "Ignored scan. Student {$student->name} is already present/checked in.",
                 'student' => $student,
                 'attendance' => $existingAttendance,
                 'direction' => 'in',
@@ -134,182 +158,6 @@ class AttendanceController extends Controller
             'direction' => 'in',
             'ignored' => false,
             'sms_logs' => $smsLogs
-        ], 200);
-    }
-
-    /**
-     * Generate a unique single-use QR checkout token for a present student.
-     */
-    public function generateCheckoutQr(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'student_id' => 'required|exists:students,id',
-            'date' => 'nullable|date_format:Y-m-d',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $student = Student::with(['guardians', 'section.teacher'])->findOrFail($request->student_id);
-
-        // Find active present attendance record
-        $activeAttendance = Attendance::where('student_id', $student->id)
-            ->whereNull('time_out')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        if (!$activeAttendance) {
-            return response()->json([
-                'message' => "Student {$student->name} is not currently marked as present or checked in."
-            ], 400);
-        }
-
-        // Invalidate previous unused QR tokens for this student
-        CheckoutToken::where('student_id', $student->id)
-            ->where('is_used', false)
-            ->update(['is_used' => true]);
-
-        // Generate unique token valid for 15 minutes
-        $token = Str::random(40);
-        $expiresAt = now()->addMinutes(15);
-
-        $checkoutToken = CheckoutToken::create([
-            'token' => $token,
-            'student_id' => $student->id,
-            'attendance_id' => $activeAttendance->id,
-            'expires_at' => $expiresAt,
-            'is_used' => false,
-        ]);
-
-        return response()->json([
-            'message' => 'Guardian Checkout QR Code generated successfully.',
-            'token' => $token,
-            'expires_at' => $expiresAt->toIso8601String(),
-            'student' => $student,
-            'attendance' => $activeAttendance,
-        ], 200);
-    }
-
-    /**
-     * Public validation endpoint for Guardian QR scanning on mobile.
-     */
-    public function validateCheckoutQr(Request $request)
-    {
-        $token = $request->query('token');
-        if (!$token) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'Missing checkout token parameter.'
-            ], 400);
-        }
-
-        $checkoutToken = CheckoutToken::with(['student.guardians', 'student.section.teacher', 'attendance'])
-            ->where('token', $token)
-            ->first();
-
-        if (!$checkoutToken) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'Invalid QR Code token. Please ask the teacher to generate a new QR code.'
-            ], 404);
-        }
-
-        if ($checkoutToken->is_used) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'This QR Code has already been used and is no longer valid.'
-            ], 400);
-        }
-
-        if (now()->greaterThan($checkoutToken->expires_at)) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'This QR Code session has expired (15-min limit). Please ask the teacher for a new QR code.'
-            ], 400);
-        }
-
-        if ($checkoutToken->attendance && $checkoutToken->attendance->time_out) {
-            return response()->json([
-                'valid' => false,
-                'message' => "Student {$checkoutToken->student->name} has already been checked out."
-            ], 400);
-        }
-
-        return response()->json([
-            'valid' => true,
-            'token' => $checkoutToken->token,
-            'student' => $checkoutToken->student,
-            'attendance' => $checkoutToken->attendance,
-            'expires_at' => $checkoutToken->expires_at->toIso8601String(),
-        ], 200);
-    }
-
-    /**
-     * Guardian pickup confirmation endpoint on mobile phone.
-     */
-    public function confirmCheckoutQr(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'token' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $checkoutToken = CheckoutToken::with(['student.guardians', 'attendance'])
-            ->where('token', $request->token)
-            ->first();
-
-        if (!$checkoutToken || $checkoutToken->is_used) {
-            return response()->json([
-                'message' => 'This QR Code token is invalid or has already been used.'
-            ], 400);
-        }
-
-        if (now()->greaterThan($checkoutToken->expires_at)) {
-            return response()->json([
-                'message' => 'This QR Code session has expired. Please ask the teacher for a new QR code.'
-            ], 400);
-        }
-
-        $attendance = $checkoutToken->attendance;
-        if (!$attendance || $attendance->time_out !== null) {
-            return response()->json([
-                'message' => 'Student has already been checked out.'
-            ], 400);
-        }
-
-        // Server timestamp for accurate checkout recording
-        $serverTime = date('H:i:s');
-        $attendance->update([
-            'time_out' => $serverTime,
-            'status' => 'Checked Out',
-            'verified_by' => 'Guardian QR',
-        ]);
-
-        // Invalidate the QR token
-        $checkoutToken->update([
-            'is_used' => true,
-            'used_at' => now(),
-        ]);
-
-        $student = $checkoutToken->student;
-        $smsLogs = SmsService::sendAttendanceAlert($student, 'checked OUT', $serverTime, 'Checked Out');
-
-        return response()->json([
-            'message' => "Pickup confirmed! Student {$student->name} checked OUT successfully.",
-            'student' => $student,
-            'attendance' => $attendance->fresh(['student.guardians']),
-            'time_out' => date('h:i A', strtotime($serverTime)),
-            'sms_logs' => $smsLogs,
         ], 200);
     }
 

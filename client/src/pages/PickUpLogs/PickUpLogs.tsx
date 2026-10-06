@@ -685,7 +685,7 @@ export function PickUpLogs() {
             </span>
             <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>All records synced with RFID gate & QR tokens</span>
+              <span>All records synced with RFID gate & verified pickups</span>
             </span>
           </div>
 

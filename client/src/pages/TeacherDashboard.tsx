@@ -383,7 +383,7 @@ export function TeacherDashboard() {
         items.push({
           id: `notif-out-${att.id}`,
           type: "pickup",
-          title: `${studentName} was checked out by guardian (${att.verified_by || 'Guardian QR'}).`,
+          title: `${studentName} was checked out by guardian (${att.verified_by || 'Authorized Pickup'}).`,
           time: formatTime12h(att.time_out),
           studentName
         })

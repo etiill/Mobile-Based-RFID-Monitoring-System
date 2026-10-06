@@ -9,10 +9,8 @@ use App\Http\Controllers\AttendanceController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
-// Public Gate Endpoints (Scanned by UHF ESP32 hardware, USB bridge daemon, or Guardian Phone)
+// Public Gate Endpoints (Scanned by UHF ESP32 hardware or USB bridge daemon)
 Route::post('/attendance/scan', [AttendanceController::class, 'scan']);
-Route::get('/attendance/checkout-qr/validate', [AttendanceController::class, 'validateCheckoutQr']);
-Route::post('/attendance/checkout-qr/confirm', [AttendanceController::class, 'confirmCheckoutQr']);
 Route::get('/sms/status', [AttendanceController::class, 'smsGatewayStatus']);
 Route::post('/sms/test', [AttendanceController::class, 'sendTestSms']);
 
@@ -48,11 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Guardian Child Information
     Route::get('/guardian/child', [StudentController::class, 'getGuardianChild']);
 
-    // Attendance Management & Single-Use Guardian QR Generation
+    // Attendance Management
     Route::get('/attendance', [AttendanceController::class, 'index']);
     Route::post('/attendance/override', [AttendanceController::class, 'override']);
     Route::post('/attendance/clear-gate-logs', [AttendanceController::class, 'clearGateLogs']);
-    Route::post('/attendance/checkout-qr/generate', [AttendanceController::class, 'generateCheckoutQr']);
 });
 
 

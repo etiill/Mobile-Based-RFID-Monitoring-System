@@ -111,7 +111,7 @@ class StudentSeeder extends Seeder
                     'time_in' => '07:40:00',
                     'time_out' => '11:30:00',
                     'status' => 'Checked Out',
-                    'verified_by' => 'Guardian QR'
+                    'verified_by' => 'Authorized Pickup'
                 ]
             ],
             [
