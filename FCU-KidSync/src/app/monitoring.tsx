@@ -5,15 +5,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
+import { Header } from '@/components/Header';
 
 export default function MonitoringScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const { child, attendance } = useAuth();
+  const { child, attendance, themeMode, toggleTheme } = useAuth();
+  const isDark = themeMode === 'dark';
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -129,38 +128,43 @@ export default function MonitoringScreen() {
       ];
 
   return (
-    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
+    <SafeAreaView style={[styles.safeArea, isDark ? styles.safeAreaDark : styles.safeAreaLight]}>
+      {/* Official Header */}
+      <Header themeMode={themeMode} onToggleTheme={toggleTheme} />
+
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textWhite]}>Navigation Points</Text>
-          <Text style={styles.subText}>Real-time campus movement logs for {child.name}</Text>
+          <Text style={[styles.title, isDark ? styles.textWhite : styles.textDark]}>Navigation Points</Text>
+          <Text style={[styles.subText, isDark ? styles.textSubDark : styles.textSubLight]}>
+            Real-time campus movement logs for {child.name}
+          </Text>
         </View>
 
         {/* Date Selector Chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <TouchableOpacity
-            style={[styles.dateChip, selectedDate === todayStr && styles.dateChipActive]}
+            style={[styles.dateChip, isDark ? styles.dateChipDark : styles.dateChipLight, selectedDate === todayStr && styles.dateChipActive]}
             onPress={() => setSelectedDate(todayStr)}
           >
-            <Text style={[styles.dateChipText, selectedDate === todayStr && styles.textWhite]}>
+            <Text style={[styles.dateChipText, selectedDate === todayStr ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
               Today ({todayStr})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.dateChip, selectedDate === '2026-10-05' && styles.dateChipActive]}
+            style={[styles.dateChip, isDark ? styles.dateChipDark : styles.dateChipLight, selectedDate === '2026-10-05' && styles.dateChipActive]}
             onPress={() => setSelectedDate('2026-10-05')}
           >
-            <Text style={[styles.dateChipText, selectedDate === '2026-10-05' && styles.textWhite]}>
+            <Text style={[styles.dateChipText, selectedDate === '2026-10-05' ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
               Yesterday
             </Text>
           </TouchableOpacity>
         </ScrollView>
 
         {/* Checkpoints Timeline Card */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
+        <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, isDark && styles.textWhite]}>Recorded Movements</Text>
+            <Text style={[styles.cardTitle, isDark ? styles.textWhite : styles.textDark]}>Recorded Movements</Text>
             <Text style={styles.countBadge}>{checkpointsTimeline.length} Logs</Text>
           </View>
 
@@ -172,17 +176,17 @@ export default function MonitoringScreen() {
                     styles.timelineDot,
                     item.action === 'Entered' ? styles.dotGreen : item.action === 'Returned' ? styles.dotBlue : styles.dotAmber
                   ]} />
-                  {idx < checkpointsTimeline.length - 1 && <View style={styles.timelineLine} />}
+                  {idx < checkpointsTimeline.length - 1 && <View style={[styles.timelineLine, isDark && styles.timelineLineDark]} />}
                 </View>
 
-                <View style={[styles.timelineCard, isDark && styles.timelineCardDark]}>
+                <View style={[styles.timelineCard, isDark ? styles.timelineCardDark : styles.timelineCardLight]}>
                   <View style={styles.itemHeader}>
-                    <Text style={[styles.locationText, isDark && styles.textWhite]}>{item.location}</Text>
+                    <Text style={[styles.locationText, isDark ? styles.textWhite : styles.textDark]}>{item.location}</Text>
                     <Text style={styles.timeText}>{item.timestamp}</Text>
                   </View>
-                  <Text style={styles.detailsText}>{item.details}</Text>
-                  <View style={styles.itemFooter}>
-                    <Text style={styles.readerText}>{item.readerId}</Text>
+                  <Text style={[styles.detailsText, isDark ? styles.textSubDark : styles.textSubLight]}>{item.details}</Text>
+                  <View style={[styles.itemFooter, isDark ? styles.itemFooterDark : styles.itemFooterLight]}>
+                    <Text style={[styles.readerText, isDark ? styles.textSubDark : styles.textSubLight]}>{item.readerId}</Text>
                     <Text style={styles.verifiedText}>✓ RFID Hardware Verified</Text>
                   </View>
                 </View>
@@ -197,33 +201,37 @@ export default function MonitoringScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: { flex: 1 },
+  safeAreaLight: { backgroundColor: '#F8FAFC' },
   safeAreaDark: { backgroundColor: '#0F172A' },
   container: { padding: 16, paddingBottom: 100 },
   header: { marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '900', color: '#0F172A' },
-  subText: { fontSize: 12, color: '#64748B', fontWeight: '500', marginTop: 2 },
+  title: { fontSize: 24, fontWeight: '900' },
+  subText: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  textDark: { color: '#0F172A' },
+  textWhite: { color: '#FFFFFF' },
+  textSubLight: { color: '#64748B' },
+  textSubDark: { color: '#94A3B8' },
   dateChip: {
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
+  dateChipLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
+  dateChipDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
   dateChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  dateChipText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  dateChipText: { fontSize: 12, fontWeight: '700' },
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
+  cardLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
   cardDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
+  cardTitle: { fontSize: 16, fontWeight: '900' },
   countBadge: { fontSize: 11, fontWeight: '800', color: '#4F46E5', backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   timelineContainer: { paddingLeft: 4 },
   timelineRow: { flexDirection: 'row', marginBottom: 16 },
@@ -233,14 +241,17 @@ const styles = StyleSheet.create({
   dotBlue: { backgroundColor: '#3B82F6' },
   dotAmber: { backgroundColor: '#F59E0B' },
   timelineLine: { width: 2, flex: 1, backgroundColor: '#CBD5E1', marginVertical: 4 },
-  timelineCard: { flex: 1, backgroundColor: '#F8FAFC', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  timelineLineDark: { backgroundColor: '#475569' },
+  timelineCard: { flex: 1, borderRadius: 14, padding: 12, borderWidth: 1 },
+  timelineCardLight: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
   timelineCardDark: { backgroundColor: '#0F172A', borderColor: '#334155' },
   itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  locationText: { fontSize: 13, fontWeight: '900', color: '#0F172A', flex: 1 },
+  locationText: { fontSize: 13, fontWeight: '900', flex: 1 },
   timeText: { fontSize: 12, fontWeight: '800', color: '#4F46E5' },
-  detailsText: { fontSize: 11, color: '#64748B', marginVertical: 6 },
-  itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-  readerText: { fontSize: 10, color: '#64748B', fontFamily: 'monospace' },
+  detailsText: { fontSize: 11, marginVertical: 6 },
+  itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTopWidth: 1 },
+  itemFooterLight: { borderTopColor: '#E2E8F0' },
+  itemFooterDark: { borderTopColor: '#334155' },
+  readerText: { fontSize: 10, fontFamily: 'monospace' },
   verifiedText: { fontSize: 10, color: '#10B981', fontWeight: '800' },
-  textWhite: { color: '#FFFFFF' },
 });

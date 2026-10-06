@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useColorScheme as useSystemColorScheme } from 'react-native';
 import { apiService, Student, AttendanceRecord } from '@/services/api';
 
 interface User {
@@ -16,6 +17,8 @@ interface AuthContextType {
   attendance: AttendanceRecord | null;
   isLoading: boolean;
   isLoggedIn: boolean;
+  themeMode: 'light' | 'dark';
+  toggleTheme: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshData: () => Promise<void>;
@@ -55,6 +58,9 @@ const DEFAULT_USER: User = {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const systemScheme = useSystemColorScheme();
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(systemScheme === 'dark' ? 'dark' : 'light');
+
   const [user, setUser] = useState<User | null>(DEFAULT_USER);
   const [child, setChild] = useState<Student>(DEFAULT_CHILD);
   const [attendance, setAttendance] = useState<AttendanceRecord | null>({
@@ -68,6 +74,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (systemScheme) {
+      setThemeMode(systemScheme === 'dark' ? 'dark' : 'light');
+    }
+  }, [systemScheme]);
+
+  const toggleTheme = () => {
+    setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   const refreshData = async () => {
     try {
@@ -99,7 +115,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoggedIn(true);
       await refreshData();
     } catch (err) {
-      // Demo login fallback if backend isn't reachable
       setUser({
         id: 1,
         name: email.split('@')[0] || 'Parent User',
@@ -127,6 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         attendance,
         isLoading,
         isLoggedIn,
+        themeMode,
+        toggleTheme,
         login,
         logout,
         refreshData,
