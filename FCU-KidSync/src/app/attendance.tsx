@@ -7,8 +7,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/Header';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function AttendanceScreen() {
   const { child, attendance, themeMode, toggleTheme } = useAuth();
@@ -53,43 +57,47 @@ export default function AttendanceScreen() {
 
         {/* KPI Metrics */}
         <View style={styles.kpiRow}>
-          <View style={[styles.kpiBox, isDark ? styles.cardDark : styles.cardLight]}>
+          <Card isDark={isDark} style={styles.kpiBox}>
             <Text style={[styles.kpiLabel, isDark ? styles.textSubDark : styles.textSubLight]}>PRESENT</Text>
             <Text style={[styles.kpiValue, { color: '#10B981' }]}>{daysPresent}</Text>
             <Text style={[styles.kpiSub, isDark ? styles.textSubDark : styles.textSubLight]}>Days</Text>
-          </View>
-          <View style={[styles.kpiBox, isDark ? styles.cardDark : styles.cardLight]}>
+          </Card>
+
+          <Card isDark={isDark} style={styles.kpiBox}>
             <Text style={[styles.kpiLabel, isDark ? styles.textSubDark : styles.textSubLight]}>ABSENT</Text>
             <Text style={[styles.kpiValue, { color: '#EF4444' }]}>{daysAbsent}</Text>
             <Text style={[styles.kpiSub, isDark ? styles.textSubDark : styles.textSubLight]}>Excused</Text>
-          </View>
-          <View style={[styles.kpiBox, isDark ? styles.cardDark : styles.cardLight]}>
+          </Card>
+
+          <Card isDark={isDark} style={styles.kpiBox}>
             <Text style={[styles.kpiLabel, isDark ? styles.textSubDark : styles.textSubLight]}>TARDY</Text>
             <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{daysLate}</Text>
             <Text style={[styles.kpiSub, isDark ? styles.textSubDark : styles.textSubLight]}>Minimal</Text>
-          </View>
+          </Card>
         </View>
 
         {/* Filter Chips */}
         <View style={styles.filterRow}>
           {['All', 'Present', 'Late', 'Absent'].map((st) => (
-            <TouchableOpacity
+            <Button
               key={st}
-              style={[styles.filterChip, isDark ? styles.filterChipDark : styles.filterChipLight, filterStatus === st && styles.filterChipActive]}
+              variant={filterStatus === st ? 'default' : 'secondary'}
+              size="sm"
+              isDark={isDark}
               onPress={() => setFilterStatus(st)}
             >
-              <Text style={[styles.filterChipText, filterStatus === st ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
-                {st}
-              </Text>
-            </TouchableOpacity>
+              {st}
+            </Button>
           ))}
         </View>
 
         {/* Attendance List */}
-        <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-          <Text style={[styles.cardTitle, isDark ? styles.textWhite : styles.textDark]}>History Records</Text>
-          
-          <View style={{ marginTop: 12 }}>
+        <Card isDark={isDark}>
+          <CardHeader>
+            <CardTitle isDark={isDark}>History Records</CardTitle>
+          </CardHeader>
+
+          <View style={{ marginTop: 4 }}>
             {filteredHistory.map((item, idx) => (
               <View key={idx} style={[styles.historyRow, isDark ? styles.historyRowDark : styles.historyRowLight]}>
                 <View style={{ flex: 1 }}>
@@ -104,21 +112,16 @@ export default function AttendanceScreen() {
                   <Text style={[styles.readerText, isDark ? styles.textSubDark : styles.textSubLight]}>{item.reader}</Text>
                 </View>
 
-                <View style={[
-                  styles.statusBadge,
-                  item.status === 'Present' ? styles.bgGreen : item.status === 'Late' ? styles.bgAmber : styles.bgRed
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    item.status === 'Present' ? styles.textGreen : item.status === 'Late' ? styles.textAmber : styles.textRed
-                  ]}>
-                    {item.status}
-                  </Text>
-                </View>
+                <Badge
+                  variant={item.status === 'Present' ? 'success' : item.status === 'Late' ? 'warning' : 'destructive'}
+                  isDark={isDark}
+                >
+                  {item.status}
+                </Badge>
               </View>
             ))}
           </View>
-        </View>
+        </Card>
 
       </ScrollView>
     </SafeAreaView>
@@ -138,20 +141,11 @@ const styles = StyleSheet.create({
   textSubLight: { color: '#64748B' },
   textSubDark: { color: '#94A3B8' },
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  kpiBox: { flex: 1, padding: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
-  cardLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  cardDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
+  kpiBox: { flex: 1, padding: 14, alignItems: 'center', marginBottom: 0 },
   kpiLabel: { fontSize: 9, fontWeight: '800' },
   kpiValue: { fontSize: 24, fontWeight: '900', marginVertical: 2 },
   kpiSub: { fontSize: 10, fontWeight: '600' },
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, borderWidth: 1 },
-  filterChipLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  filterChipDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
-  filterChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  filterChipText: { fontSize: 12, fontWeight: '800' },
-  card: { borderRadius: 20, padding: 16, borderWidth: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '900' },
   historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 14, marginBottom: 8 },
   historyRowLight: { backgroundColor: '#F8FAFC' },
   historyRowDark: { backgroundColor: '#0F172A' },
@@ -159,12 +153,4 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 11 },
   timeText: { fontSize: 12, fontWeight: '800' },
   readerText: { fontSize: 10 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  bgGreen: { backgroundColor: '#D1FAE5' },
-  bgAmber: { backgroundColor: '#FEF3C7' },
-  bgRed: { backgroundColor: '#FEE2E2' },
-  statusText: { fontSize: 11, fontWeight: '900' },
-  textGreen: { color: '#065F46' },
-  textAmber: { color: '#92400E' },
-  textRed: { color: '#991B1B' },
 });

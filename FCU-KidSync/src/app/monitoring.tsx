@@ -7,8 +7,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MapPin, Navigation, Clock, CheckCircle2 } from 'lucide-react-native';
+
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/Header';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function MonitoringScreen() {
   const { child, attendance, themeMode, toggleTheme } = useAuth();
@@ -143,30 +148,36 @@ export default function MonitoringScreen() {
 
         {/* Date Selector Chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          <TouchableOpacity
-            style={[styles.dateChip, isDark ? styles.dateChipDark : styles.dateChipLight, selectedDate === todayStr && styles.dateChipActive]}
+          <Button
+            variant={selectedDate === todayStr ? 'default' : 'secondary'}
+            size="sm"
+            isDark={isDark}
+            style={{ marginRight: 8 }}
             onPress={() => setSelectedDate(todayStr)}
           >
-            <Text style={[styles.dateChipText, selectedDate === todayStr ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
-              Today ({todayStr})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.dateChip, isDark ? styles.dateChipDark : styles.dateChipLight, selectedDate === '2026-10-05' && styles.dateChipActive]}
+            Today ({todayStr})
+          </Button>
+
+          <Button
+            variant={selectedDate === '2026-10-05' ? 'default' : 'secondary'}
+            size="sm"
+            isDark={isDark}
             onPress={() => setSelectedDate('2026-10-05')}
           >
-            <Text style={[styles.dateChipText, selectedDate === '2026-10-05' ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
-              Yesterday
-            </Text>
-          </TouchableOpacity>
+            Yesterday
+          </Button>
         </ScrollView>
 
         {/* Checkpoints Timeline Card */}
-        <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, isDark ? styles.textWhite : styles.textDark]}>Recorded Movements</Text>
-            <Text style={styles.countBadge}>{checkpointsTimeline.length} Logs</Text>
-          </View>
+        <Card isDark={isDark}>
+          <CardHeader>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <CardTitle isDark={isDark}>Recorded Movements</CardTitle>
+              <Badge variant="info" isDark={isDark}>
+                {checkpointsTimeline.length} Logs
+              </Badge>
+            </View>
+          </CardHeader>
 
           <View style={styles.timelineContainer}>
             {checkpointsTimeline.map((item, idx) => (
@@ -193,7 +204,7 @@ export default function MonitoringScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </Card>
 
       </ScrollView>
     </SafeAreaView>
@@ -212,27 +223,6 @@ const styles = StyleSheet.create({
   textWhite: { color: '#FFFFFF' },
   textSubLight: { color: '#64748B' },
   textSubDark: { color: '#94A3B8' },
-  dateChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  dateChipLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  dateChipDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
-  dateChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  dateChipText: { fontSize: 12, fontWeight: '700' },
-  card: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-  },
-  cardLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  cardDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { fontSize: 16, fontWeight: '900' },
-  countBadge: { fontSize: 11, fontWeight: '800', color: '#4F46E5', backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   timelineContainer: { paddingLeft: 4 },
   timelineRow: { flexDirection: 'row', marginBottom: 16 },
   timelineDotContainer: { alignItems: 'center', marginRight: 12 },

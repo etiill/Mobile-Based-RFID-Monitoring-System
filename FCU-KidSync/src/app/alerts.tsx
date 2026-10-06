@@ -7,8 +7,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bell, CheckCircle2, MapPin, UserCheck, BookOpen } from 'lucide-react-native';
+
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/Header';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function AlertsScreen() {
   const { child, attendance, themeMode, toggleTheme } = useAuth();
@@ -51,7 +56,7 @@ export default function AlertsScreen() {
     {
       id: 'alt-1',
       category: 'Arrival',
-      icon: '🟢',
+      iconType: 'arrival',
       title: `${child.name} • Morning Arrival Logged`,
       desc: `${child.name} arrived at school and scanned active RFID tag at Main Entrance Gate.`,
       time: `Today • ${timeInFormatted}`,
@@ -59,7 +64,7 @@ export default function AlertsScreen() {
     {
       id: 'alt-2',
       category: 'Movement',
-      icon: '🔵',
+      iconType: 'movement',
       title: `${child.name} • Classroom Checkpoint Verified`,
       desc: `${child.name} checked into Classroom Alpha (Room 102) for morning learning circle.`,
       time: 'Today • 08:00 AM',
@@ -67,7 +72,7 @@ export default function AlertsScreen() {
     {
       id: 'alt-3',
       category: 'Movement',
-      icon: '🟡',
+      iconType: 'movement',
       title: `${child.name} • Playground Checkpoint Scan`,
       desc: `${child.name} transitioned to Kindergarten Activity Area under teacher supervision.`,
       time: 'Today • 09:45 AM',
@@ -77,7 +82,7 @@ export default function AlertsScreen() {
           {
             id: 'alt-4',
             category: 'Pickup',
-            icon: '🟣',
+            iconType: 'pickup',
             title: `${child.name} • Safe Dismissal & Pickup Completed`,
             desc: `${child.name} was safely released at campus exit gate (${attendance?.verified_by || 'Verified RFID Gate'}).`,
             time: `Today • ${timeOutFormatted}`,
@@ -87,7 +92,7 @@ export default function AlertsScreen() {
           {
             id: 'alt-4',
             category: 'Pickup',
-            icon: '🟣',
+            iconType: 'pickup',
             title: `${child.name} • In Classroom - Awaiting Pickup`,
             desc: `${child.name} has completed class activities and is in Classroom Alpha awaiting authorized pickup.`,
             time: 'Today • 11:30 AM',
@@ -96,7 +101,7 @@ export default function AlertsScreen() {
     {
       id: 'alt-5',
       category: 'Updates',
-      icon: '📖',
+      iconType: 'update',
       title: `${child.name} • Teacher Progress Note`,
       desc: `Teacher ${child.section?.teacher?.name}: "${child.name} demonstrated active participation during phonics today!"`,
       time: 'Today • 10:15 AM',
@@ -114,6 +119,19 @@ export default function AlertsScreen() {
     setReadState(next);
   };
 
+  const renderIcon = (type: string) => {
+    switch (type) {
+      case 'arrival':
+        return <CheckCircle2 size={20} color="#10B981" />;
+      case 'movement':
+        return <MapPin size={20} color="#3B82F6" />;
+      case 'pickup':
+        return <UserCheck size={20} color="#8B5CF6" />;
+      default:
+        return <BookOpen size={20} color="#F59E0B" />;
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, isDark ? styles.safeAreaDark : styles.safeAreaLight]}>
       {/* Official Header */}
@@ -129,23 +147,24 @@ export default function AlertsScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.readAllBtn} onPress={markAllRead}>
-            <Text style={styles.readAllBtnText}>Mark All Read</Text>
-          </TouchableOpacity>
+          <Button variant="ghost" size="sm" isDark={isDark} onPress={markAllRead}>
+            Mark All Read
+          </Button>
         </View>
 
         {/* Category Chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           {['All', 'Arrival', 'Movement', 'Pickup', 'Updates'].map((cat) => (
-            <TouchableOpacity
+            <Button
               key={cat}
-              style={[styles.catChip, isDark ? styles.catChipDark : styles.catChipLight, categoryFilter === cat && styles.catChipActive]}
+              variant={categoryFilter === cat ? 'default' : 'secondary'}
+              size="sm"
+              isDark={isDark}
+              style={{ marginRight: 8 }}
               onPress={() => setCategoryFilter(cat)}
             >
-              <Text style={[styles.catChipText, categoryFilter === cat ? styles.textWhite : isDark ? styles.textSubDark : styles.textSubLight]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
+              {cat}
+            </Button>
           ))}
         </ScrollView>
 
@@ -156,27 +175,40 @@ export default function AlertsScreen() {
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[
-                  styles.alertCard,
-                  isDark ? styles.cardDark : styles.cardLight,
-                  !isRead && (isDark ? styles.unreadCardDark : styles.unreadCardLight)
-                ]}
                 onPress={() => setReadState((prev) => ({ ...prev, [item.id]: true }))}
                 activeOpacity={0.8}
               >
-                <View style={styles.alertRow}>
-                  <Text style={styles.alertIcon}>{item.icon}</Text>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.alertTitleRow}>
-                      <Text style={[styles.categoryBadge, isDark ? styles.categoryBadgeDark : styles.categoryBadgeLight]}>
-                        {item.category}
-                      </Text>
-                      <Text style={[styles.alertTime, isDark ? styles.textSubDark : styles.textSubLight]}>{item.time}</Text>
+                <Card
+                  isDark={isDark}
+                  style={[
+                    styles.alertCard,
+                    !isRead && (isDark ? styles.unreadCardDark : styles.unreadCardLight),
+                  ]}
+                >
+                  <View style={styles.alertRow}>
+                    <View style={[styles.iconBox, isDark ? styles.iconBoxDark : styles.iconBoxLight]}>
+                      {renderIcon(item.iconType)}
                     </View>
-                    <Text style={[styles.alertTitle, isDark ? styles.textWhite : styles.textDark]}>{item.title}</Text>
-                    <Text style={[styles.alertDesc, isDark ? styles.textSubDark : styles.textSubLight]}>{item.desc}</Text>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.alertTitleRow}>
+                        <Badge variant="info" isDark={isDark}>
+                          {item.category}
+                        </Badge>
+                        <Text style={[styles.alertTime, isDark ? styles.textSubDark : styles.textSubLight]}>
+                          {item.time}
+                        </Text>
+                      </View>
+
+                      <Text style={[styles.alertTitle, isDark ? styles.textWhite : styles.textDark]}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.alertDesc, isDark ? styles.textSubDark : styles.textSubLight]}>
+                        {item.desc}
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                </Card>
               </TouchableOpacity>
             );
           })}
@@ -199,25 +231,21 @@ const styles = StyleSheet.create({
   textWhite: { color: '#FFFFFF' },
   textSubLight: { color: '#64748B' },
   textSubDark: { color: '#94A3B8' },
-  readAllBtn: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  readAllBtnText: { fontSize: 11, fontWeight: '800', color: '#4F46E5' },
-  catChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1 },
-  catChipLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  catChipDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
-  catChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  catChipText: { fontSize: 12, fontWeight: '800' },
-  alertCard: { borderRadius: 18, padding: 14, borderWidth: 1 },
-  cardLight: { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' },
-  cardDark: { backgroundColor: '#1E293B', borderColor: '#334155' },
+  alertCard: { marginBottom: 0 },
   unreadCardLight: { borderColor: '#A5B4FC', backgroundColor: '#F4F5FF' },
   unreadCardDark: { borderColor: '#6366F1', backgroundColor: '#1E1B4B' },
   alertRow: { flexDirection: 'row', gap: 12 },
-  alertIcon: { fontSize: 22 },
+  iconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBoxLight: { backgroundColor: '#F1F5F9' },
+  iconBoxDark: { backgroundColor: '#0F172A' },
   alertTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  categoryBadge: { fontSize: 9, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  categoryBadgeLight: { color: '#4F46E5', backgroundColor: '#EEF2FF' },
-  categoryBadgeDark: { color: '#C7D2FE', backgroundColor: '#312E81' },
   alertTime: { fontSize: 10, fontWeight: '700' },
-  alertTitle: { fontSize: 13, fontWeight: '900' },
-  alertDesc: { fontSize: 12, marginTop: 2 },
+  alertTitle: { fontSize: 13, fontWeight: '900', marginTop: 4 },
+  alertDesc: { fontSize: 12, marginTop: 2, lineHeight: 18 },
 });
