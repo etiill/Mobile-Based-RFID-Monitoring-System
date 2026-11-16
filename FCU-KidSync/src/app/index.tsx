@@ -113,7 +113,7 @@ export default function HomeScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.greetingText, isDark ? styles.textWhite : styles.textDark]}>
-                {greetingInfo.text}, {parentName} 👋
+                {greetingInfo.text}, {parentName}
               </Text>
               <Text style={[styles.subText, isDark ? styles.textSubDark : styles.textSubLight]}>
                 Real-time safety & RFID monitoring for <Text style={styles.boldText}>{child.name}</Text>.

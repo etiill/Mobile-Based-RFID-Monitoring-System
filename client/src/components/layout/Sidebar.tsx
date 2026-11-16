@@ -206,7 +206,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   )}
                 >
                   <item.icon
-                    size={18}
+                    size={20}
                     className="shrink-0 transition-transform group-hover:scale-110"
                   />
                   {!isCollapsed && (

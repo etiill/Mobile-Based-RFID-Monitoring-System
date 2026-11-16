@@ -58,10 +58,10 @@ export function Navbar() {
           />
           <div className="flex flex-col justify-center">
             <Link to="/" className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-primary leading-tight">
+              <span className="text-xl font-bold tracking-tight text-primary leading-tight">
                 FCU Kindergarten
               </span>
-              <span className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">
+              <span className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                 RFID Monitoring System
               </span>
             </Link>
@@ -74,16 +74,16 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-3 cursor-pointer outline-none hover:opacity-80 transition-opacity text-left bg-transparent border-0 p-0">
-              <Avatar className="h-9 w-9 bg-accent border border-border">
-                <AvatarFallback className="text-xs font-semibold text-neutral bg-accent">
+              <Avatar className="h-10 w-10 bg-accent border border-border">
+                <AvatarFallback className="text-sm font-semibold text-neutral bg-accent">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden flex-col md:flex">
-                <span className="text-sm font-semibold text-neutral leading-none">
+                <span className="text-sm font-semibold text-neutral leading-tight">
                   {name}
                 </span>
-                <span className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                <span className="text-xs text-muted-foreground mt-0.5 leading-tight">
                   {roleLabel}
                 </span>
               </div>
