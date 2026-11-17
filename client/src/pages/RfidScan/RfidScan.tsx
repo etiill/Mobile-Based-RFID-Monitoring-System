@@ -213,6 +213,19 @@ export function RfidScan() {
     return rawTime
   }
 
+  // Helper to read/write cleared DB event keys so polling never re-imports cleared logs
+  const getClearedLogKeys = (): Set<string> => {
+    try {
+      const raw = localStorage.getItem("rfid_cleared_log_keys")
+      return raw ? new Set(JSON.parse(raw)) : new Set()
+    } catch {
+      return new Set()
+    }
+  }
+
+  const getLogSignature = (log: Pick<ScanLog, "id" | "rfid" | "direction" | "timestamp">) =>
+    `${log.rfid}|${log.direction}|${log.timestamp}`
+
   // Fetch real-time gate attendance logs from backend
   const fetchRecentScans = async () => {
     try {
@@ -281,12 +294,16 @@ export function RfidScan() {
           }
         })
 
-        // Merge DB events into scanLog history without purging previous scan logs
+        const clearedKeys = getClearedLogKeys()
+
+        // Merge DB events into scanLog history without purging previous scan logs or re-adding cleared logs
         setScanLogs(prev => {
           if (dbEvents.length === 0) return prev
 
-          // Identify DB events that do not already exist in scanLog history
+          // Identify DB events that do not already exist in scanLog history and were not explicitly cleared
           const missingDbEvents = dbEvents.filter(d =>
+            !clearedKeys.has(d.id) &&
+            !clearedKeys.has(getLogSignature(d)) &&
             !prev.some(p => p.id === d.id || (p.rfid === d.rfid && p.direction === d.direction && p.timestamp === d.timestamp))
           )
 
@@ -310,11 +327,25 @@ export function RfidScan() {
     let bc: BroadcastChannel | null = null
     try {
       bc = new BroadcastChannel("rfid_attendance_sync")
-      bc.onmessage = () => fetchRecentScans()
+      bc.onmessage = (event) => {
+        if (event.data?.type === "rfid_logs_cleared") {
+          setScanLogs([])
+          setRadarPoints([])
+          return
+        }
+        fetchRecentScans()
+      }
     } catch { }
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "rfid_gate_logs") fetchRecentScans()
+      if (e.key === "rfid_gate_logs") {
+        if (!e.newValue) {
+          setScanLogs([])
+          setRadarPoints([])
+          return
+        }
+        fetchRecentScans()
+      }
     }
     window.addEventListener("storage", handleStorageChange)
 
@@ -414,7 +445,7 @@ export function RfidScan() {
         : "Unassigned"
 
       const newLog: ScanLog = {
-        id: Math.random().toString(),
+        id: response.attendance ? `db-${response.direction}-${response.attendance.id}` : Math.random().toString(),
         timestamp: formattedTime,
         studentName: scannedStudent ? scannedStudent.name : "Unknown",
         rfid: studentRfid,
@@ -425,6 +456,14 @@ export function RfidScan() {
         distance,
         status: response.attendance ? response.attendance.status : "Present",
         smsLogs: response.sms_logs
+      }
+
+      // Ensure this fresh scan is not in the cleared keys list
+      const clearedKeys = getClearedLogKeys()
+      if (clearedKeys.has(newLog.id) || clearedKeys.has(getLogSignature(newLog))) {
+        clearedKeys.delete(newLog.id)
+        clearedKeys.delete(getLogSignature(newLog))
+        localStorage.setItem("rfid_cleared_log_keys", JSON.stringify(Array.from(clearedKeys)))
       }
 
       setScanLogs(prev => [newLog, ...prev].slice(0, 100))
@@ -792,12 +831,20 @@ export function RfidScan() {
     if (!confirm("Are you sure you want to clear all active gate scan logs?")) return
 
     try {
+      // Record current log IDs and signatures so background polling will never re-add them
+      const clearedKeys = getClearedLogKeys()
+      scanLogs.forEach(log => {
+        clearedKeys.add(log.id)
+        clearedKeys.add(getLogSignature(log))
+      })
+      localStorage.setItem("rfid_cleared_log_keys", JSON.stringify(Array.from(clearedKeys)))
+
       localStorage.removeItem("rfid_gate_logs")
       setScanLogs([])
+      setRadarPoints([])
+      lastScannedTimeRef.current = {}
 
-      await ApiHandler.post("/attendance/clear-gate-logs", { delete_attendance: false })
-
-      window.dispatchEvent(new Event("rfid_scan_updated"))
+      await ApiHandler.post("/attendance/clear-gate-logs", { delete_attendance: true })
 
       try {
         const bc = new BroadcastChannel("rfid_attendance_sync")

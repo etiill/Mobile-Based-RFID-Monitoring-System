@@ -216,7 +216,7 @@ class AttendanceController extends Controller
      */
     public function clearGateLogs(Request $request)
     {
-        if ($request->has('delete_attendance') && $request->delete_attendance) {
+        if (!$request->has('delete_attendance') || $request->boolean('delete_attendance')) {
             Attendance::query()->delete();
         }
 
