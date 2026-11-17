@@ -14,9 +14,10 @@ class SmsService
      * @param  string  $actionWord  e.g. "checked IN" or "checked OUT"
      * @param  string  $time        e.g. "07:45:00"
      * @param  string  $status      e.g. "Present", "Late", "Checked Out"
+     * @param  string|null  $verifiedBy  Optional pickup verification details (e.g. "NFC Card Verified • Reyes, Maria")
      * @return array
      */
-    public static function sendAttendanceAlert($student, string $actionWord, string $time, string $status): array
+    public static function sendAttendanceAlert($student, string $actionWord, string $time, string $status, ?string $verifiedBy = null): array
     {
         $smsLogs = [];
         $formattedTime = date('h:i A', strtotime($time));
@@ -25,8 +26,15 @@ class SmsService
             return [];
         }
 
+        $isCheckout = $status === 'Checked Out' || str_contains(strtolower($actionWord), 'out');
+
         foreach ($student->guardians as $guardian) {
-            $message = "FCU Attendance Alert: {$student->name} has {$actionWord} at {$formattedTime}. Status: {$status}.";
+            if ($isCheckout) {
+                $pickupInfo = $verifiedBy ? " Verified via: {$verifiedBy}." : "";
+                $message = "FCU Pick Up Alert: {$student->name} has safely {$actionWord} at {$formattedTime}.{$pickupInfo}";
+            } else {
+                $message = "FCU Attendance Alert: {$student->name} has {$actionWord} at {$formattedTime}. Status: {$status}.";
+            }
             
             $sendResult = self::send($guardian->phone, $message);
 

@@ -95,7 +95,7 @@ class AttendanceController extends Controller
             ]);
 
             $attendance = $existingAttendance->fresh(['student.guardians']);
-            $smsLogs = SmsService::sendAttendanceAlert($student, 'checked OUT', $time, 'Checked Out');
+            $smsLogs = SmsService::sendAttendanceAlert($student, 'checked OUT', $time, 'Checked Out', 'RFID Exit Gate');
 
             return response()->json([
                 'message' => "Student {$student->name} checked OUT successfully.",
@@ -210,9 +210,23 @@ class AttendanceController extends Controller
             ]
         );
 
+        $attendance->load('student.guardians');
+
+        $smsLogs = [];
+        if ($request->status === 'Checked Out' && $attendance->student) {
+            $smsLogs = SmsService::sendAttendanceAlert(
+                $attendance->student,
+                'checked OUT',
+                $timeOut ?: date('H:i:s'),
+                'Checked Out',
+                $verifiedBy
+            );
+        }
+
         return response()->json([
             'message' => 'Attendance record saved.',
-            'attendance' => $attendance->load('student.guardians')
+            'attendance' => $attendance,
+            'sms_logs' => $smsLogs,
         ], 200);
     }
 
