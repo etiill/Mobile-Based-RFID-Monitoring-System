@@ -532,9 +532,69 @@ export function MyStudents() {
         </div>
       </div>
 
-      {/* Pupil Table list */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col">
-        <div className="overflow-x-auto overflow-y-auto max-h-[520px] relative scrollbar-thin">
+      {/* Pupil Table & Responsive Card list */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col min-w-0">
+        {/* Responsive Card View (< xl) */}
+        <div className="xl:hidden divide-y divide-border">
+          {myStudents.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground font-semibold">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <User className="h-8 w-8 text-muted-foreground/45 animate-pulse" />
+                <span>No students found in your assigned class list.</span>
+              </div>
+            </div>
+          ) : (
+            paginatedStudents.map((student) => {
+              const formattedId = `S${String(student.id).padStart(3, "0")}`
+              const primaryGuardianName = student.guardians[0]?.name || "None"
+              const classInfo = student.section
+                ? `${student.section.year_level} - ${student.section.section_name}`
+                : "Unassigned"
+
+              return (
+                <div key={`mob-stu-${student.id}`} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">{formattedId} • {classInfo}</span>
+                      <h4 className="text-sm font-extrabold text-primary mt-0.5 truncate">{student.name}</h4>
+                      <p className="text-[11px] text-muted-foreground font-semibold mt-0.5 truncate">
+                        Guardian: <span className="text-neutral font-bold">{primaryGuardianName}</span>
+                        {student.guardians.length > 1 && ` (+${student.guardians.length - 1})`}
+                      </p>
+                    </div>
+                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md bg-tertiary border border-border text-muted-foreground shrink-0">
+                      {student.rfid}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => handleOpenView(student)}
+                      className="flex-1 py-1.5 rounded-lg border border-border text-[11px] font-bold bg-white dark:bg-card text-neutral hover:bg-tertiary transition-all cursor-pointer"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => handleOpenEditStudent(student)}
+                      className="flex-1 py-1.5 rounded-lg border border-border text-[11px] font-bold bg-white dark:bg-card text-neutral hover:bg-tertiary transition-all cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleOpenAddGuardian(student.id)}
+                      className="flex-1 py-1.5 rounded-lg border border-[#4F46E5] text-[11px] font-bold bg-[#4F46E5]/5 text-[#4F46E5] hover:bg-[#4F46E5]/10 transition-all cursor-pointer"
+                    >
+                      + Guardian
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (xl+) */}
+        <div className="hidden xl:block overflow-x-auto overflow-y-auto max-h-[520px] relative scrollbar-thin">
           {isPageLoading && (
             <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] flex items-center justify-center z-30 transition-all">
               <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 shadow-md">
@@ -675,8 +735,8 @@ export function MyStudents() {
                     disabled={isPageLoading}
                     onClick={() => handlePageChange(pageNum)}
                     className={`h-8 min-w-[32px] px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${isActive
-                        ? "bg-primary text-white border-none shadow-xs"
-                        : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
+                      ? "bg-primary text-white border-none shadow-xs"
+                      : "bg-card border border-border text-muted-foreground hover:bg-tertiary hover:text-primary"
                       }`}
                   >
                     {pageNum}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { Link } from "react-router-dom"
-import { 
+import {
   Sun,
   Moon,
   GraduationCap,
@@ -74,7 +74,7 @@ export function TeacherDashboard() {
   const [sections, setSections] = useState<Section[]>([])
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // Section filter
   const [selectedSectionId, setSelectedSectionId] = useState<string | number | "all">("all")
 
@@ -134,7 +134,7 @@ export function TeacherDashboard() {
           return `${hours}:${strMinutes} ${ampm}`
         }
       }
-    } catch {}
+    } catch { }
     return rawTime
   }
 
@@ -183,7 +183,7 @@ export function TeacherDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-    const interval = setInterval(fetchDashboardData, 3500)
+    const interval = setInterval(fetchDashboardData, 1500)
 
     const handleCustomScanEvent = () => fetchDashboardData()
     window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
@@ -192,7 +192,7 @@ export function TeacherDashboard() {
     try {
       bc = new BroadcastChannel("rfid_attendance_sync")
       bc.onmessage = () => fetchDashboardData()
-    } catch {}
+    } catch { }
 
     return () => {
       clearInterval(interval)
@@ -285,11 +285,11 @@ export function TeacherDashboard() {
         }
 
         const nameParts = student.name.split(" ")
-        const initials = nameParts.length >= 2 
+        const initials = nameParts.length >= 2
           ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
           : student.name.substring(0, 2).toUpperCase()
 
-        const sectionLabel = student.section 
+        const sectionLabel = student.section
           ? `${student.section.year_level} • ${student.section.section_name}`
           : "Kindergarten • Section A"
 
@@ -343,7 +343,7 @@ export function TeacherDashboard() {
         student.guardians.forEach((g) => {
           if (g.name && !list.some(item => item.name === g.name)) {
             const parts = g.name.split(" ")
-            const initials = parts.length >= 2 
+            const initials = parts.length >= 2
               ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
               : g.name.substring(0, 2).toUpperCase()
 
@@ -378,7 +378,7 @@ export function TeacherDashboard() {
     // Map recent attendance events
     attendances.slice(0, 10).forEach((att) => {
       const studentName = att.student?.name || (students.find(s => s.id === att.student_id)?.name) || "Pupil"
-      
+
       if (att.time_out) {
         items.push({
           id: `notif-out-${att.id}`,
@@ -455,7 +455,7 @@ export function TeacherDashboard() {
         const bc = new BroadcastChannel("rfid_attendance_sync")
         bc.postMessage({ event: "attendance_updated" })
         bc.close()
-      } catch {}
+      } catch { }
 
       await fetchDashboardData()
       setSelectedPupilModal(null)
@@ -502,7 +502,7 @@ export function TeacherDashboard() {
         const bc = new BroadcastChannel("rfid_attendance_sync")
         bc.postMessage({ event: "attendance_updated" })
         bc.close()
-      } catch {}
+      } catch { }
 
       await fetchDashboardData()
       setSelectedPupilModal(null)
@@ -539,7 +539,7 @@ export function TeacherDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in font-sans text-neutral max-w-[1400px] mx-auto pb-8">
-      
+
       {/* 1. Header Greeting & Status */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -585,13 +585,12 @@ export function TeacherDashboard() {
 
       {/* 2. Top Stats Row (4 Metric Cards with Click-to-filter capability) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        
+
         {/* TOTAL STUDENTS */}
         <button
           onClick={() => setActivePupilTab("all")}
-          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
-            activePupilTab === "all" ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-border hover:border-border/80"
-          }`}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${activePupilTab === "all" ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-border hover:border-border/80"
+            }`}
         >
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 block">
@@ -611,9 +610,8 @@ export function TeacherDashboard() {
         {/* PRESENT */}
         <button
           onClick={() => setActivePupilTab("present")}
-          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
-            activePupilTab === "present" ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-border hover:border-border/80"
-          }`}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${activePupilTab === "present" ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-border hover:border-border/80"
+            }`}
         >
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block">
@@ -635,9 +633,8 @@ export function TeacherDashboard() {
         {/* ABSENT */}
         <button
           onClick={() => setActivePupilTab("absent")}
-          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
-            activePupilTab === "absent" ? "border-rose-500 ring-2 ring-rose-500/20" : "border-border hover:border-border/80"
-          }`}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${activePupilTab === "absent" ? "border-rose-500 ring-2 ring-rose-500/20" : "border-border hover:border-border/80"
+            }`}
         >
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-500 block">
@@ -659,9 +656,8 @@ export function TeacherDashboard() {
         {/* LATE */}
         <button
           onClick={() => setActivePupilTab("late")}
-          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${
-            activePupilTab === "late" ? "border-amber-500 ring-2 ring-amber-500/20" : "border-border hover:border-border/80"
-          }`}
+          className={`text-left rounded-2xl border bg-card p-5 shadow-xs flex items-center justify-between transition-all cursor-pointer ${activePupilTab === "late" ? "border-amber-500 ring-2 ring-amber-500/20" : "border-border hover:border-border/80"
+            }`}
         >
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 block">
@@ -680,15 +676,15 @@ export function TeacherDashboard() {
 
       </div>
 
-      {/* 3. Main Dashboard Layout (Left ~7 Cols, Right ~5 Cols) */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        
+      {/* 3. Main Dashboard Layout (Stacks cleanly on smaller windows, 2 columns on xl+) */}
+      <div className="grid gap-5 sm:gap-6 xl:grid-cols-12">
+
         {/* LEFT COLUMN: Today's Class, Pupils Overview, Quote of the Day */}
-        <div className="lg:col-span-7 space-y-6">
-          
+        <div className="xl:col-span-7 min-w-0 space-y-5 sm:space-y-6">
+
           {/* Card: Today's Class */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
+          <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shrink-0">
                   <BookOpen className="h-5 w-5" />
@@ -747,12 +743,12 @@ export function TeacherDashboard() {
           </div>
 
           {/* Card: Pupils Overview */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
-            
+          <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-xs space-y-4">
+
             {/* Header row with View All link */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-rose-500" />
+                <GraduationCap className="h-5 w-5 text-rose-500 shrink-0" />
                 <h3 className="text-sm font-extrabold text-neutral">
                   Pupils Overview
                 </h3>
@@ -761,22 +757,22 @@ export function TeacherDashboard() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
                 {/* Search input */}
-                <div className="relative">
+                <div className="relative flex-1 sm:flex-initial">
                   <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Search pupil..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-2 py-1 text-xs rounded-xl bg-tertiary/40 border border-border/70 focus:outline-none focus:border-primary w-28 sm:w-36 text-neutral"
+                    className="pl-8 pr-2 py-1 text-xs rounded-xl bg-tertiary/40 border border-border/70 focus:outline-none focus:border-primary w-full sm:w-36 text-neutral"
                   />
                 </div>
 
-                <Link 
-                  to={role === "admin" ? "/app/pupils" : "/app/my_students"} 
-                  className="text-xs font-extrabold text-primary hover:underline inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                <Link
+                  to={role === "admin" ? "/app/pupils" : "/app/my_students"}
+                  className="text-xs font-extrabold text-primary hover:underline inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0"
                 >
                   <span>View All</span>
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -790,11 +786,10 @@ export function TeacherDashboard() {
                 <button
                   key={tab}
                   onClick={() => setActivePupilTab(tab)}
-                  className={`px-2.5 py-1 rounded-lg font-bold border transition-colors capitalize text-[11px] cursor-pointer whitespace-nowrap ${
-                    activePupilTab === tab
-                      ? "bg-primary text-white border-primary"
-                      : "bg-tertiary/30 text-muted-foreground border-transparent hover:bg-tertiary/60"
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg font-bold border transition-colors capitalize text-[11px] cursor-pointer whitespace-nowrap ${activePupilTab === tab
+                    ? "bg-primary text-white border-primary"
+                    : "bg-tertiary/30 text-muted-foreground border-transparent hover:bg-tertiary/60"
+                    }`}
                 >
                   {tab.replace("_", " ")}
                 </button>
@@ -812,8 +807,8 @@ export function TeacherDashboard() {
                   const isPresent = pupil.rawStatus === "Present" || pupil.rawStatus === "Late"
 
                   return (
-                    <div 
-                      key={pupil.id} 
+                    <div
+                      key={pupil.id}
                       onClick={() => setSelectedPupilModal(pupil.student)}
                       className="py-3 flex items-center justify-between hover:bg-tertiary/20 px-2 rounded-xl transition-colors cursor-pointer group"
                     >
@@ -870,10 +865,10 @@ export function TeacherDashboard() {
         </div>
 
         {/* RIGHT COLUMN: Guardians Quick Contact & Recent Notifications */}
-        <div className="lg:col-span-5 space-y-6">
-          
+        <div className="xl:col-span-5 min-w-0 space-y-5 sm:space-y-6">
+
           {/* Card: Guardians Quick Contact */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-4">
+          <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-emerald-600" />
@@ -881,8 +876,8 @@ export function TeacherDashboard() {
                   Guardians Quick Contact
                 </h3>
               </div>
-              <Link 
-                to={role === "admin" ? "/app/registration?tab=students" : "/app/my_students"} 
+              <Link
+                to={role === "admin" ? "/app/registration?tab=students" : "/app/my_students"}
                 className="text-xs font-extrabold text-primary hover:underline transition-colors"
               >
                 View All
@@ -897,8 +892,8 @@ export function TeacherDashboard() {
                 </div>
               ) : (
                 guardiansList.map((g) => (
-                  <div 
-                    key={g.id} 
+                  <div
+                    key={g.id}
                     onClick={() => setSelectedGuardianModal({ guardian: g.rawGuardian, studentName: g.studentName })}
                     className="py-3 flex items-center justify-between hover:bg-tertiary/20 px-2 rounded-xl transition-colors cursor-pointer group"
                   >
@@ -911,8 +906,8 @@ export function TeacherDashboard() {
                           {g.name}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <a 
-                            href={`tel:${g.phone.replace(/\s+/g, '')}`} 
+                          <a
+                            href={`tel:${g.phone.replace(/\s+/g, '')}`}
                             onClick={(e) => e.stopPropagation()}
                             className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors truncate"
                           >
@@ -948,8 +943,8 @@ export function TeacherDashboard() {
                   Recent Notifications
                 </h3>
               </div>
-              <Link 
-                to="/app/attendance" 
+              <Link
+                to="/app/attendance"
                 className="text-xs font-extrabold text-primary hover:underline transition-colors"
               >
                 View All
@@ -961,8 +956,8 @@ export function TeacherDashboard() {
               {dynamicNotifications.map((notif) => {
                 if (notif.type === "pickup") {
                   return (
-                    <div 
-                      key={notif.id} 
+                    <div
+                      key={notif.id}
                       className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 dark:bg-purple-950/20 dark:border-purple-900/30 flex items-start gap-3"
                     >
                       <div className="mt-0.5 shrink-0">
@@ -982,8 +977,8 @@ export function TeacherDashboard() {
 
                 if (notif.type === "late") {
                   return (
-                    <div 
-                      key={notif.id} 
+                    <div
+                      key={notif.id}
                       className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30 flex items-start gap-3"
                     >
                       <div className="mt-0.5 shrink-0">
@@ -1003,8 +998,8 @@ export function TeacherDashboard() {
 
                 if (notif.type === "announcement") {
                   return (
-                    <div 
-                      key={notif.id} 
+                    <div
+                      key={notif.id}
                       className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30 flex items-start gap-3"
                     >
                       <div className="mt-0.5 shrink-0">
@@ -1023,8 +1018,8 @@ export function TeacherDashboard() {
                 }
 
                 return (
-                  <div 
-                    key={notif.id} 
+                  <div
+                    key={notif.id}
                     className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30 flex items-start gap-3"
                   >
                     <div className="mt-0.5 shrink-0">
@@ -1050,11 +1045,11 @@ export function TeacherDashboard() {
 
       {/* Pupil Quick Actions & Detail Modal */}
       {selectedPupilModal && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
           onClick={() => setSelectedPupilModal(null)}
         >
-          <div 
+          <div
             className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-5 animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1135,15 +1130,15 @@ export function TeacherDashboard() {
                       </span>
                       <div className="space-y-2">
                         {selectedPupilModal.guardians.map((g, idx) => (
-                          <div 
-                            key={idx} 
+                          <div
+                            key={idx}
                             className="p-2.5 rounded-xl border border-border/70 flex items-center justify-between text-xs"
                           >
                             <div>
                               <p className="font-bold text-neutral">{g.name} ({g.relation})</p>
                               <p className="text-[11px] text-muted-foreground">{g.phone}</p>
                             </div>
-                            <a 
+                            <a
                               href={`tel:${g.phone.replace(/\s+/g, '')}`}
                               className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1"
                             >
@@ -1208,11 +1203,11 @@ export function TeacherDashboard() {
 
       {/* Guardian Detail Modal */}
       {selectedGuardianModal && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
           onClick={() => setSelectedGuardianModal(null)}
         >
-          <div 
+          <div
             className="w-full max-w-sm rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4 animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >

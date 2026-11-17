@@ -154,7 +154,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* Mobile Menu Toggle Button */}
       <button
         onClick={toggleMobileMenu}
-        className="fixed top-3.5 left-4 z-50 p-2 bg-primary rounded-lg shadow-md md:hidden border border-white/10 cursor-pointer"
+        className="fixed top-3 left-3 z-50 p-2 bg-primary rounded-lg shadow-md md:hidden border border-white/10 cursor-pointer"
         aria-label="Toggle mobile menu"
       >
         {isMobileMenuOpen ? (
@@ -163,6 +163,37 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           <Menu size={18} className="text-white" />
         )}
       </button>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-card/95 backdrop-blur-md border-t border-border px-1.5 py-1.5 flex items-center justify-around shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        {filteredRoutes.slice(0, 5).map((item) => {
+          const isActive = isItemActive(item.path)
+          const shortLabel =
+            item.label === "Pick Up Logs"
+              ? "Pick Up"
+              : item.label === "Year Level & Sections"
+              ? "Sections"
+              : item.label === "RFID Monitoring"
+              ? "RFID"
+              : item.label
+          return (
+            <NavLink
+              key={`mob-${item.path}`}
+              to={item.path}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl text-[10px] font-bold transition-all min-w-[52px]",
+                isActive
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-neutral"
+              )}
+            >
+              <item.icon size={18} className={cn("shrink-0", isActive && "stroke-[2.5]")} />
+              <span className="truncate max-w-[64px]">{shortLabel}</span>
+            </NavLink>
+          )
+        })}
+      </nav>
 
       {/* Mobile Drawer Overlay */}
       {isMobileMenuOpen && (
@@ -175,8 +206,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* Sidebar Container */}
       <aside
         className={cn(
-          "fixed top-0 left-0 md:top-auto md:left-auto md:relative z-40 h-screen md:h-full bg-primary text-white transition-all duration-300 ease-in-out shadow-xl flex flex-col shrink-0 relative",
-          isCollapsed ? "w-20" : "w-64",
+          "fixed top-0 left-0 md:top-auto md:left-auto md:relative z-40 h-screen md:h-full bg-primary text-white transition-all duration-300 ease-in-out shadow-xl flex flex-col shrink-0",
+          isCollapsed ? "w-64 md:w-16 lg:w-20" : "w-64",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -209,7 +240,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     size={20}
                     className="shrink-0 transition-transform group-hover:scale-110"
                   />
-                  {!isCollapsed && (
+                  {(!isCollapsed || isMobileMenuOpen) && (
                     <span className="font-semibold text-sm whitespace-nowrap overflow-hidden">
                       {item.label}
                     </span>

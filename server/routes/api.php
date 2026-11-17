@@ -9,8 +9,13 @@ use App\Http\Controllers\AttendanceController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
-// Public Gate Endpoints (Scanned by UHF ESP32 hardware or USB bridge daemon)
+// Public Gate Endpoints (Scanned by UHF ESP32 hardware, Phone NFC Reader, or USB bridge daemon)
 Route::post('/attendance/scan', [AttendanceController::class, 'scan']);
+Route::match(['get', 'post'], '/nfc/tap', [AttendanceController::class, 'nfcTap']);
+Route::get('/nfc/poll', [AttendanceController::class, 'nfcPoll']);
+Route::get('/nfc/cards', [AttendanceController::class, 'getNfcCards']);
+Route::post('/nfc/assign', [AttendanceController::class, 'assignNfcCard']);
+Route::post('/nfc/unassign', [AttendanceController::class, 'unassignNfcCard']);
 Route::get('/sms/status', [AttendanceController::class, 'smsGatewayStatus']);
 Route::post('/sms/test', [AttendanceController::class, 'sendTestSms']);
 

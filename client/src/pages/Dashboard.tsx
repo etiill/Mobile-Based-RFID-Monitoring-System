@@ -82,11 +82,16 @@ export function AdminDashboard() {
   })
 
   useEffect(() => {
-    const fetchMetrics = async () => {
+    const fetchStaticCounts = async () => {
       try {
-        // 1. Fetch Students & Guardians count
-        const students = await ApiHandler.get<any[]>("/students")
-        if (Array.isArray(students) && students.length > 0) {
+        const [studentsRes, teachersRes, sectionsRes] = await Promise.allSettled([
+          ApiHandler.get<any[]>("/students"),
+          ApiHandler.get<any[]>("/teachers"),
+          ApiHandler.get<any[]>("/sections")
+        ])
+
+        if (studentsRes.status === "fulfilled" && Array.isArray(studentsRes.value) && studentsRes.value.length > 0) {
+          const students = studentsRes.value
           setPupilsCount(students.length)
           const guardianIds = new Set()
           students.forEach(s => {
@@ -101,25 +106,21 @@ export function AdminDashboard() {
           if (totalG > 0) setGuardiansCount(totalG)
         }
 
-        // 2. Fetch Teachers count
-        try {
-          const teachers = await ApiHandler.get<any[]>("/teachers")
-          if (Array.isArray(teachers) && teachers.length > 0) {
-            setTeachersCount(teachers.length)
-          }
-        } catch {}
+        if (teachersRes.status === "fulfilled" && Array.isArray(teachersRes.value) && teachersRes.value.length > 0) {
+          setTeachersCount(teachersRes.value.length)
+        }
 
-        // 3. Fetch Sections & Year Levels count
-        try {
-          const sections = await ApiHandler.get<any[]>("/sections")
-          if (Array.isArray(sections) && sections.length > 0) {
-            setSectionsCount(sections.length)
-            const yearLevels = new Set(sections.map((sec: any) => sec.year_level).filter(Boolean))
-            if (yearLevels.size > 0) setYearLevelsCount(yearLevels.size)
-          }
-        } catch {}
+        if (sectionsRes.status === "fulfilled" && Array.isArray(sectionsRes.value) && sectionsRes.value.length > 0) {
+          const sections = sectionsRes.value
+          setSectionsCount(sections.length)
+          const yearLevels = new Set(sections.map((sec: any) => sec.year_level).filter(Boolean))
+          if (yearLevels.size > 0) setYearLevelsCount(yearLevels.size)
+        }
+      } catch {}
+    }
 
-        // 4. Fetch Live Attendance & Pickup Logs
+    const fetchLiveAttendance = async () => {
+      try {
         const now = new Date()
         const year = now.getFullYear()
         const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -130,17 +131,14 @@ export function AdminDashboard() {
           attendances = await ApiHandler.get<any[]>(`/attendance`)
         }
 
-        if (Array.isArray(attendances) && attendances.length > 0) {
-          // Sort descending by time
+        if (Array.isArray(attendances)) {
           const sortedAttendances = [...attendances].sort((a, b) => {
             const timeA = a.time_out || a.time_in || ""
             const timeB = b.time_out || b.time_in || ""
             return timeB.localeCompare(timeA)
           })
 
-          // Recent RFID Arrival Activity
           const liveArrivals: ArrivalActivityItem[] = []
-          // Recent Pick Up Logs
           const livePickups: PickupLogItem[] = []
 
           sortedAttendances.forEach((att, idx) => {
@@ -149,6 +147,7 @@ export function AdminDashboard() {
               ? `${att.student.section.year_level || ""} - ${att.student.section.section_name || ""}`
               : (att.student?.grade || "Kindergarten")
             const rfidStr = att.student?.rfid ? `RFID-${att.student.rfid}` : "Gate Scanner"
+            const isCheckedOut = Boolean(att.time_out) || att.status === "Checked Out" || att.status === "Picked Up"
 
             if (att.time_in) {
               liveArrivals.push({
@@ -157,14 +156,20 @@ export function AdminDashboard() {
                 pupilName: studentName,
                 yearSection: sectionStr,
                 rfidTag: rfidStr,
-                status: "Checked In"
+                status: isCheckedOut ? "Checked Out" : "Checked In"
               })
             }
 
-            if (att.time_out || att.status === "Checked Out" || att.status === "Picked Up") {
+            if (isCheckedOut) {
               const guardians = att.student?.guardians || []
-              const guardianName = att.verified_by || (guardians.length > 0 ? guardians[0].name : "Authorized Guardian")
-              const relation = guardians.length > 0 ? (guardians[0].relation || "Guardian") : "Authorized Pickup"
+              let guardianName = att.verified_by || (guardians.length > 0 ? guardians[0].name : "Authorized Guardian")
+              let relation = guardians.length > 0 ? (guardians[0].relation || "Guardian") : "Authorized Pickup"
+
+              if (typeof att.verified_by === "string" && att.verified_by.includes("•")) {
+                const parts = att.verified_by.split("•")
+                guardianName = parts[parts.length - 1].trim()
+                relation = parts[0].trim()
+              }
 
               livePickups.push({
                 id: `pickup-${att.id || idx}`,
@@ -177,25 +182,33 @@ export function AdminDashboard() {
             }
           })
 
-          if (liveArrivals.length > 0) setArrivalActivity(liveArrivals)
-          if (livePickups.length > 0) setPickupLogsList(livePickups)
+          setArrivalActivity(liveArrivals)
+          setPickupLogsList(livePickups)
         }
       } catch (err) {
         console.error("Failed to load dashboard live metrics:", err)
       }
     }
 
-    fetchMetrics()
-    const interval = setInterval(fetchMetrics, 4000)
+    fetchStaticCounts()
+    fetchLiveAttendance()
+    // Fast 1.5-second poll on attendance endpoint only so check-outs reflect immediately on Admin side
+    const interval = setInterval(fetchLiveAttendance, 1500)
+    const staticInterval = setInterval(fetchStaticCounts, 15000)
+
+    const handleScanUpdated = () => fetchLiveAttendance()
+    window.addEventListener("rfid_scan_updated", handleScanUpdated)
 
     let bc: BroadcastChannel | null = null
     try {
       bc = new BroadcastChannel("rfid_attendance_sync")
-      bc.onmessage = () => fetchMetrics()
+      bc.onmessage = () => fetchLiveAttendance()
     } catch {}
 
     return () => {
       clearInterval(interval)
+      clearInterval(staticInterval)
+      window.removeEventListener("rfid_scan_updated", handleScanUpdated)
       if (bc) bc.close()
     }
   }, [])

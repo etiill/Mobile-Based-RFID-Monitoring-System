@@ -319,7 +319,7 @@ export function RfidScan() {
 
   useEffect(() => {
     fetchRecentScans()
-    const interval = setInterval(fetchRecentScans, 3000)
+    const interval = setInterval(fetchRecentScans, 1500)
 
     const handleCustomScanEvent = () => fetchRecentScans()
     window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
@@ -1377,6 +1377,9 @@ export function RfidScan() {
                             )}
                             {log.status === 'Late' && (
                               <span className="text-[9px] font-bold text-amber-600">Late In</span>
+                            )}
+                            {log.status === 'Checked Out' && (
+                              <span className="text-[9px] font-bold text-blue-600">Checked Out</span>
                             )}
                             {log.status === 'Absent' && (
                               <span className="text-[9px] font-bold text-red-600">Absent</span>

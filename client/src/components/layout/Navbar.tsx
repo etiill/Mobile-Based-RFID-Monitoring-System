@@ -48,20 +48,20 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-card">
-      <div className="flex h-16 items-center justify-between px-6">
+      <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-6">
         {/* Left Side: Brand Details */}
-        <div className="flex items-center gap-3">
-          <img 
-            src="/images/Filamer_Logo.png" 
-            alt="Filamer Logo" 
-            className="h-9 w-9 object-contain select-none"
+        <div className="flex items-center gap-2.5 sm:gap-3 pl-10 md:pl-0 min-w-0">
+          <img
+            src="/images/Filamer_Logo.png"
+            alt="Filamer Logo"
+            className="h-8 w-8 sm:h-9 sm:w-9 object-contain select-none shrink-0"
           />
-          <div className="flex flex-col justify-center">
-            <Link to="/" className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-primary leading-tight">
+          <div className="flex flex-col justify-center min-w-0">
+            <Link to="/" className="flex flex-col min-w-0">
+              <span className="text-base sm:text-xl font-bold tracking-tight text-primary leading-tight truncate">
                 FCU Kindergarten
               </span>
-              <span className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-muted-foreground uppercase truncate">
                 RFID Monitoring System
               </span>
             </Link>

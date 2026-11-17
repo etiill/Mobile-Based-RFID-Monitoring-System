@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react"
-import { 
-  Search, 
-  Download, 
-  Check, 
-  X, 
-  Clock, 
-  User, 
-  Users, 
+import {
+  Search,
+  Download,
+  Check,
+  X,
+  Clock,
+  User,
+  Users,
   Eye,
   RefreshCw,
   Edit2,
@@ -72,7 +72,7 @@ export function Attendance() {
   // Modal details
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null)
-  
+
   // Override fields
   const [overrideStatus, setOverrideStatus] = useState<"Present" | "Late" | "Absent">("Present")
   const [overrideTimeIn, setOverrideTimeIn] = useState<string>("")
@@ -86,7 +86,7 @@ export function Attendance() {
   const fetchData = async (showLoadingScreen = true) => {
     if (showLoadingScreen) setIsLoading(true)
     else setIsRefreshing(true)
-    
+
     try {
       const [studentsData, sectionsData] = await Promise.all([
         ApiHandler.get<Student[]>("/students"),
@@ -94,7 +94,7 @@ export function Attendance() {
       ])
       setStudents(studentsData)
       setSections(sectionsData)
-      
+
       // Auto select first section of this teacher if none selected
       if (!selectedSectionId) {
         const teacherSecs = sectionsData.filter(s => s.teacher_id?.toString() === teacherId?.toString())
@@ -138,7 +138,7 @@ export function Attendance() {
   // Refetch attendance logs when date changes or via real-time sync from admin side
   useEffect(() => {
     fetchAttendance()
-    const interval = setInterval(fetchAttendance, 3000)
+    const interval = setInterval(fetchAttendance, 1500)
 
     const handleCustomScanEvent = () => fetchAttendance()
     window.addEventListener("rfid_scan_updated", handleCustomScanEvent)
@@ -147,7 +147,7 @@ export function Attendance() {
     try {
       bc = new BroadcastChannel("rfid_attendance_sync")
       bc.onmessage = () => fetchAttendance()
-    } catch {}
+    } catch { }
 
     return () => {
       clearInterval(interval)
@@ -171,7 +171,7 @@ export function Attendance() {
     const logs: AttendanceRecord[] = []
 
     // Filter students assigned to the selected section
-    const targetStudents = students.filter(s => 
+    const targetStudents = students.filter(s =>
       selectedSectionId === "" || s.section_id?.toString() === selectedSectionId.toString()
     )
 
@@ -212,20 +212,20 @@ export function Attendance() {
               return `${hours}:${strMinutes} ${ampm}`
             }
           }
-        } catch {}
+        } catch { }
         try {
           const dateObj = new Date(`2000-01-01T${rawTime}`)
           if (!isNaN(dateObj.getTime())) {
             return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
           }
-        } catch {}
+        } catch { }
         return rawTime
       }
 
       if (record) {
         status = record.status as "Present" | "Late" | "Absent"
         verifiedBy = record.verified_by as "RFID System" | "Manual Override"
-        
+
         if (record.time_in) {
           timeIn = formatToStandardTime(record.time_in)
         }
@@ -262,7 +262,7 @@ export function Attendance() {
 
       // Search filter (searches student name, ID, or RFID)
       const formattedId = `S${String(rec.studentId).padStart(3, "0")}`
-      const matchesSearch = 
+      const matchesSearch =
         rec.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         formattedId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rec.rfid.toLowerCase().includes(searchQuery.toLowerCase())
@@ -297,7 +297,7 @@ export function Attendance() {
       return
     }
 
-    let csvContent = "data:text/csv;charset=utf-8," 
+    let csvContent = "data:text/csv;charset=utf-8,"
       + "Date,Day,Student Name,RFID Tag,Time In,Time Out,Status,Verified By,Classroom\n"
 
     filteredRecords.forEach(r => {
@@ -362,7 +362,7 @@ export function Attendance() {
         description: `Successfully updated attendance for ${activeRecord.studentName}.`,
         type: "success"
       })
-      
+
       await fetchAttendance()
       setIsDetailModalOpen(false)
       setActiveRecord(null)
@@ -388,13 +388,13 @@ export function Attendance() {
 
   return (
     <div className="space-y-8 animate-fade-in text-neutral font-sans">
-      
+
       {/* Header Panel */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">Attendance Records</h1>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -483,7 +483,7 @@ export function Attendance() {
       {/* Filters & search panel */}
       <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center w-full">
-          
+
           {/* Full-width Search Box */}
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -552,9 +552,74 @@ export function Attendance() {
         </div>
       </div>
 
-      {/* Roster Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+      {/* Roster Table & Responsive Cards */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm min-w-0">
+        {/* Responsive Card View (< xl) */}
+        <div className="xl:hidden divide-y divide-border">
+          {filteredRecords.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground font-bold">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <User className="h-8 w-8 text-muted-foreground/45 animate-pulse" />
+                <span>No attendance records found for selected date and section.</span>
+              </div>
+            </div>
+          ) : (
+            filteredRecords.map((log, idx) => (
+              <div
+                key={`mob-att-${idx}`}
+                onClick={() => handleOpenDetails(log)}
+                className="p-4 space-y-2.5 hover:bg-tertiary/15 active:bg-tertiary/25 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 font-bold text-xs shrink-0">
+                      {log.studentName.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-primary text-sm truncate">{log.studentName}</h4>
+                      <p className="text-[11px] text-muted-foreground font-mono truncate">RFID: {log.rfid}</p>
+                    </div>
+                  </div>
+                  {log.status === "Present" && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 text-[10px] font-bold uppercase shrink-0">
+                      Present
+                    </span>
+                  )}
+                  {log.status === "Late" && (
+                    <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-600 border border-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase shrink-0">
+                      Late
+                    </span>
+                  )}
+                  {log.status === "Absent" && (
+                    <span className="inline-flex items-center rounded-full bg-red-50 text-red-600 border border-red-100 px-2.5 py-0.5 text-[10px] font-bold uppercase shrink-0">
+                      Absent
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-semibold">
+                    <span>In: <strong className="text-neutral">{log.timeIn}</strong></span>
+                    <span>Out: <strong className="text-neutral">{log.timeOut}</strong></span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleOpenDetails(log)
+                    }}
+                    className="px-2.5 py-1 rounded-lg border border-border text-[11px] font-bold bg-card text-primary hover:bg-tertiary flex items-center gap-1 cursor-pointer"
+                  >
+                    <Eye className="h-3 w-3" />
+                    <span>Override</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table View (xl+) */}
+        <div className="hidden xl:block overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs font-sans">
             <thead>
               <tr className="border-b border-border bg-tertiary/30 text-muted-foreground font-bold select-none uppercase tracking-wider">
@@ -581,7 +646,7 @@ export function Attendance() {
               ) : (
                 filteredRecords.map((log, idx) => {
                   const initials = log.studentName.charAt(0)
-                  
+
                   return (
                     <tr key={idx} className="hover:bg-tertiary/10 transition-colors">
                       {/* Date */}
@@ -671,16 +736,16 @@ export function Attendance() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-border animate-in scale-in duration-200 text-neutral">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-base font-bold text-primary">Attendance Override & Details</h2>
-              <button 
+              <button
                 onClick={handleCloseView}
                 className="p-1 hover:bg-tertiary rounded-lg text-muted-foreground hover:text-neutral cursor-pointer border-none bg-transparent"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="space-y-5 mt-4 font-sans text-xs">
-              
+
               {/* Pupil info */}
               <div className="flex items-center gap-4 p-4 border border-border rounded-xl bg-tertiary/20">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary shrink-0 select-none font-bold">
@@ -757,31 +822,28 @@ export function Attendance() {
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setOverrideStatus("Present")}
-                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
-                        overrideStatus === "Present"
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : "bg-white border-border text-muted-foreground hover:bg-tertiary"
-                      }`}
+                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${overrideStatus === "Present"
+                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        : "bg-white border-border text-muted-foreground hover:bg-tertiary"
+                        }`}
                     >
                       Present
                     </button>
                     <button
                       onClick={() => setOverrideStatus("Late")}
-                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
-                        overrideStatus === "Late"
-                          ? "bg-amber-500 border-amber-500 text-white"
-                          : "bg-white border-border text-muted-foreground hover:bg-tertiary"
-                      }`}
+                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${overrideStatus === "Late"
+                        ? "bg-amber-500 border-amber-500 text-white"
+                        : "bg-white border-border text-muted-foreground hover:bg-tertiary"
+                        }`}
                     >
                       Late
                     </button>
                     <button
                       onClick={() => setOverrideStatus("Absent")}
-                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
-                        overrideStatus === "Absent"
-                          ? "bg-red-500 border-red-500 text-white"
-                          : "bg-white border-border text-muted-foreground hover:bg-tertiary"
-                      }`}
+                      className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${overrideStatus === "Absent"
+                        ? "bg-red-500 border-red-500 text-white"
+                        : "bg-white border-border text-muted-foreground hover:bg-tertiary"
+                        }`}
                     >
                       Absent
                     </button>

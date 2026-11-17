@@ -5,7 +5,7 @@ import axios from "axios"
  * Sets baseURL to Laravel server endpoint and injects local token in the request header.
  */
 const AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
+  baseURL: import.meta.env.VITE_API_URL || "/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
