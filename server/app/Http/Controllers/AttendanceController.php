@@ -128,17 +128,15 @@ class AttendanceController extends Controller
         $classStartTime = '08:00:00';
         $status = ($time > $classStartTime) ? 'Late' : 'Present';
 
-        // 2. If student was previously checked out today (time_out is NOT null), ignore duplicate gate scans so checkout is preserved
+        // 2. If student was previously checked out today (time_out is NOT null), start new check-in transaction
         if ($existingAttendance && $existingAttendance->time_out !== null) {
-            $existingAttendance->load('student.guardians');
-            return response()->json([
-                'message' => "Ignored scan. Student {$student->name} has already checked out for today.",
-                'student' => $student,
-                'attendance' => $existingAttendance,
-                'direction' => 'out',
-                'ignored' => true,
-                'sms_logs' => []
-            ], 200);
+            $existingAttendance->update([
+                'time_in' => $time,
+                'time_out' => null,
+                'status' => $status,
+                'verified_by' => 'RFID System',
+            ]);
+            $attendance = $existingAttendance->fresh(['student.guardians']);
         } else {
             // 3. First scan of the day: Create new attendance record
             $attendance = Attendance::create([

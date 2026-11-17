@@ -196,7 +196,7 @@ class SmsService
             $gatewayUrl .= '/message';
         }
 
-        $client = Http::connectTimeout(1)->timeout(2)->acceptJson();
+        $client = Http::timeout(10)->acceptJson();
 
         // Support Basic Auth (username:password) or Bearer/Token
         if (!empty($token)) {

@@ -251,7 +251,7 @@ export function RfidScan() {
           if (item.time_out) {
             const timeOutStr = formatTimeString(item.time_out)
             dbEvents.push({
-              id: `db-out-${item.id}`,
+              id: `db-out-${item.id}-${timeOutStr}`,
               timestamp: timeOutStr,
               studentName,
               rfid: studentObj?.rfid || item.rfid || "N/A",
@@ -260,12 +260,12 @@ export function RfidScan() {
               direction: 'out',
               rssi: -58 - Math.floor(Math.random() * 8),
               distance: parseFloat((1.5 + Math.random() * 2).toFixed(1)),
-              status: item.status || "Present",
+              status: item.status || "Checked Out",
               smsLogs: (item.sms_logs && item.sms_logs.length > 0) ? item.sms_logs : guardians.map((g: any) => ({
                 guardian_name: g.name,
                 phone: g.phone,
                 relation: g.relation,
-                message: `FCU Attendance Alert: ${studentName} checked OUT at ${timeOutStr}.`
+                message: `FCU Pick Up Alert: ${studentName} has safely checked OUT at ${timeOutStr}.`
               }))
             })
           }
@@ -274,7 +274,7 @@ export function RfidScan() {
           if (item.time_in) {
             const timeInStr = formatTimeString(item.time_in)
             dbEvents.push({
-              id: `db-in-${item.id}`,
+              id: `db-in-${item.id}-${timeInStr}`,
               timestamp: timeInStr,
               studentName,
               rfid: studentObj?.rfid || item.rfid || "N/A",
@@ -445,7 +445,7 @@ export function RfidScan() {
         : "Unassigned"
 
       const newLog: ScanLog = {
-        id: response.attendance ? `db-${response.direction}-${response.attendance.id}` : Math.random().toString(),
+        id: response.attendance ? `db-${response.direction}-${response.attendance.id}-${formattedTime}` : Math.random().toString(),
         timestamp: formattedTime,
         studentName: scannedStudent ? scannedStudent.name : "Unknown",
         rfid: studentRfid,

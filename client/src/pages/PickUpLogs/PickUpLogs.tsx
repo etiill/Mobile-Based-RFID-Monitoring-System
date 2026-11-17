@@ -1046,56 +1046,54 @@ export function PickUpLogs() {
     const student = students.find(s => s.id.toString() === selectedStudentForPickup.toString())
     if (!student) return
 
-    setIsSubmittingPickup(true)
-    try {
-      const now = new Date()
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      const att = attendances.find(a => a.student_id === student.id)
-      const guardianLabel = selectedGuardianForPickup || "Authorized Guardian"
-      const verifiedByStr =
-        verificationMode === "nfc"
-          ? `NFC Card Verified (${scannedNfcUid || expectedNfcUid}) • ${guardianLabel}`
-          : `Manual Check Out • ${guardianLabel}`
+    const now = new Date()
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+    const att = attendances.find(a => a.student_id === student.id)
+    const guardianLabel = selectedGuardianForPickup || "Authorized Guardian"
+    const verifiedByStr =
+      verificationMode === "nfc"
+        ? `NFC Card Verified (${scannedNfcUid || expectedNfcUid}) • ${guardianLabel}`
+        : `Manual Check Out • ${guardianLabel}`
 
-      const res = await ApiHandler.post<{ attendance?: AttendanceRecord }>("/attendance/override", {
+    // Optimistically update UI & close modal immediately so SMS dispatch never delays the screen
+    const optimisticRecord: AttendanceRecord = {
+      id: att?.id || Date.now(),
+      student_id: student.id,
+      date: selectedDate,
+      time_in: att?.time_in || "08:00:00",
+      time_out: currentTime,
+      status: "Checked Out",
+      verified_by: verifiedByStr,
+      student
+    }
+    setAttendances(prev => {
+      const exists = prev.some(a => String(a.student_id) === String(student.id))
+      if (exists) {
+        return prev.map(a => (String(a.student_id) === String(student.id) ? { ...a, ...optimisticRecord } : a))
+      }
+      return [optimisticRecord, ...prev]
+    })
+
+    setIsRecordModalOpen(false)
+    setSelectedStudentForPickup("")
+    setSelectedGuardianForPickup("")
+    setIsNfcCardVerified(false)
+    setScannedNfcUid("")
+
+    toast.add({
+      title: verificationMode === "nfc" ? "NFC Pick Up Verified & Logged" : "Manual Check Out Logged ✓",
+      description: `${student.name} was checked out to ${guardianLabel}. Sending SMS alert to guardian...`,
+      type: "success"
+    })
+
+    try {
+      await ApiHandler.post<{ attendance?: AttendanceRecord; sms_logs?: any[] }>("/attendance/override", {
         student_id: student.id,
         date: selectedDate,
         status: "Checked Out",
         time_in: att?.time_in || "08:00:00",
         time_out: currentTime,
         verified_by: verifiedByStr
-      })
-
-      // Optimistically update attendance state immediately so UI updates in 0ms
-      const updatedRecord: AttendanceRecord = res?.attendance || {
-        id: att?.id || Date.now(),
-        student_id: student.id,
-        date: selectedDate,
-        time_in: att?.time_in || "08:00:00",
-        time_out: currentTime,
-        status: "Checked Out",
-        verified_by: verifiedByStr,
-        student
-      }
-      setAttendances(prev => {
-        const exists = prev.some(a => String(a.student_id) === String(student.id))
-        if (exists) {
-          return prev.map(a => (String(a.student_id) === String(student.id) ? { ...a, ...updatedRecord } : a))
-        }
-        return [updatedRecord, ...prev]
-      })
-
-      // Close modal immediately without waiting for background re-fetch
-      setIsRecordModalOpen(false)
-      setSelectedStudentForPickup("")
-      setSelectedGuardianForPickup("")
-      setIsNfcCardVerified(false)
-      setScannedNfcUid("")
-
-      toast.add({
-        title: verificationMode === "nfc" ? "NFC Pick Up Verified & Logged" : "Manual Check Out Logged ✓",
-        description: `${student.name} was checked out to ${guardianLabel} (${verificationMode === "nfc" ? scannedNfcUid || expectedNfcUid : "Manual Check Out"}).`,
-        type: "success"
       })
 
       // Sync across open tabs & Admin pages immediately
